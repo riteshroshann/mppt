@@ -1,0 +1,357 @@
+\chapter{Theoretical Background}
+\label{ch:theory}
+
+This chapter defines every concept the later chapters rely on. It is written so
+that a reader who knows basic circuit theory and basic calculus can follow the
+whole report without consulting anything else.
+
+\section{Photovoltaic conversion}
+
+\subsection{The photovoltaic effect}
+
+A \term{solar cell} is a large-area semiconductor diode. When a photon with
+energy greater than the semiconductor \term{bandgap} $E_g$ is absorbed, it lifts
+an electron into the conduction band and leaves a hole behind. The built-in
+electric field of the p--n junction sweeps these carriers in opposite
+directions, producing a current. That current, called the \term{photocurrent}
+$I_{ph}$, is very nearly proportional to the incident irradiance $G$.
+
+\subsection{Irradiance and standard test conditions}
+
+\term{Irradiance} is optical power per unit area, measured in
+\si{\watt\per\square\metre}. Bright midday sun on a surface facing it is close
+to \SI{1000}{\watt\per\square\metre}. Because output depends on light,
+temperature and spectrum, modules are rated at \term{Standard Test Conditions}
+(STC): irradiance \SI{1000}{\watt\per\square\metre}, cell temperature
+\SI{25}{\celsius}, and an air mass 1.5 spectrum.
+
+\subsection{The four datasheet points}
+
+Manufacturers publish, at STC:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item $\Isc$, the \term{short-circuit current}: current when the terminals are
+        shorted, so the terminal voltage is zero.
+  \item $\Voc$, the \term{open-circuit voltage}: voltage when no current is
+        drawn.
+  \item $\Vmp$ and $\Imp$, the voltage and current at the maximum power point,
+        whose product is the rated power $\Pmp$.
+  \item $\alpha_{Isc}$ and $\beta_{Voc}$, the \term{temperature coefficients}
+        that say how $\Isc$ and $\Voc$ change per kelvin.
+\end{itemize}
+
+The \term{fill factor} $FF = \Pmp / (\Voc \Isc)$ measures how square the I--V
+curve is; a good crystalline silicon module is around \num{0.75}.
+
+\section{The single-diode model}
+
+\subsection{Circuit and equation}
+
+The standard lumped circuit model of a photovoltaic cell or module places a
+current source $I_{ph}$ in parallel with a diode and a shunt resistance
+$R_{sh}$, with a series resistance $R_s$ to the terminals. Applying Kirchhoff's
+current law gives the \term{single-diode equation}:
+
+\begin{equation}
+I = I_{ph} - I_0\!\left[\exp\!\left(\frac{V + I R_s}{a}\right) - 1\right] - \frac{V + I R_s}{R_{sh}} ,
+\label{eq:singlediode}
+\end{equation}
+
+where
+
+\begin{equation}
+a = \frac{n N_s k T_c}{q}
+\label{eq:idealityvolts}
+\end{equation}
+
+is the \term{modified ideality factor}, expressed in volts. Here $n$ is the
+dimensionless diode \term{ideality factor} (unity for an ideal diode, larger
+when recombination is significant), $N_s$ is the number of cells in series in
+the module, $k$ is the Boltzmann constant, $T_c$ the absolute cell temperature
+and $q$ the elementary charge. $I_0$ is the \term{reverse saturation current} of
+the diode.
+
+The physical meaning of each element is worth stating plainly:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item $I_{ph}$ is the current the light would deliver if nothing internal
+        stole it.
+  \item The diode term is the recombination current that flows back through the
+        junction; it is negligible at low voltage and dominates near $\Voc$.
+  \item $R_{sh}$ represents leakage paths across the junction; a small $R_{sh}$
+        tilts the flat part of the I--V curve downward.
+  \item $R_s$ represents contact, grid and bulk resistance; it rounds the knee
+        of the curve.
+\end{itemize}
+
+\subsection{Why the equation is implicit}
+
+Equation~\eqref{eq:singlediode} has $I$ on both sides, inside the exponential as
+well as outside. There is no elementary closed form for $I(V)$. It can be
+written using the Lambert $W$ function, but the argument overflows in double
+precision for realistic parameters. This report solves it numerically by a
+damped Newton iteration, described in Section~\ref{sec:solver}.
+
+\subsection{Translation to other conditions}
+
+The five reference parameters are identified at STC and then translated to the
+actual operating irradiance and temperature. This project uses the De Soto
+formulation~\cite{desoto}, which is the basis of the widely used NREL System
+Advisor Model:
+
+\begin{align}
+a(T_c) &= a_{ref}\,\frac{T_c}{T_{ref}} \label{eq:tr_a}\\
+I_{ph}(G,T_c) &= \frac{G}{G_{ref}}\left[I_{ph,ref} + \alpha_{Isc}\,(T_c - T_{ref})\right] \label{eq:tr_iph}\\
+E_g(T_c) &= E_{g,ref}\left[1 - \num{2.677e-4}\,(T_c - T_{ref})\right] \label{eq:tr_eg}\\
+I_0(T_c) &= I_{0,ref}\left(\frac{T_c}{T_{ref}}\right)^{\!3}\exp\!\left[\frac{E_{g,ref}}{k T_{ref}} - \frac{E_g(T_c)}{k T_c}\right] \label{eq:tr_i0}\\
+R_{sh}(G) &= R_{sh,ref}\,\frac{G_{ref}}{G}, \qquad R_s = R_{s,ref} \label{eq:tr_r}
+\end{align}
+
+Physically: the thermal voltage rises with temperature; the photocurrent scales
+with light and drifts slightly with temperature; the saturation current rises
+steeply with temperature because the bandgap narrows; and shunt leakage scales
+inversely with illumination.
+
+\subsection{Series and parallel arrays}
+
+For $N_{sm}$ modules in series and $N_{ps}$ strings in parallel, voltages add
+along a string and currents add across strings, so the array-level parameters
+are
+
+\begin{equation}
+\begin{gathered}
+a_{arr} = a N_{sm}, \qquad
+I_{ph,arr} = I_{ph} N_{ps}, \qquad
+I_{0,arr} = I_0 N_{ps},\\[4pt]
+R_{s,arr} = R_s \frac{N_{sm}}{N_{ps}}, \qquad
+R_{sh,arr} = R_{sh} \frac{N_{sm}}{N_{ps}} .
+\end{gathered}
+\label{eq:arrayscaling}
+\end{equation}
+
+This assumes all modules see the same irradiance and temperature. Partial
+shading breaks that assumption and creates multiple local maxima; it is outside
+the scope of this project and is noted as future work in
+Chapter~\ref{ch:conclusions}.
+
+\section{Quantities that govern the control problem}
+
+\subsection{The power gradient}
+
+Differentiating the output power $P = V I$ with respect to terminal voltage,
+
+\begin{equation}
+\frac{\mathrm{d}P}{\mathrm{d}V} = I + V\,\frac{\mathrm{d}I}{\mathrm{d}V} .
+\label{eq:dpdv}
+\end{equation}
+
+The maximum power point is where this vanishes. Every MPPT algorithm is, in one
+way or another, an attempt to drive $\mathrm{d}P/\mathrm{d}V$ to zero using only
+terminal measurements.
+
+\subsection{The slope of the I--V curve}
+
+Implicit differentiation of~\eqref{eq:singlediode} gives an exact expression for
+the slope, which is used throughout this report rather than a finite difference:
+
+\begin{equation}
+\frac{\mathrm{d}I}{\mathrm{d}V}
+= -\,\frac{g_d + 1/R_{sh}}{1 + R_s g_d + R_s/R_{sh}},
+\qquad
+g_d = \frac{I_0}{a}\exp\!\left(\frac{V + I R_s}{a}\right).
+\label{eq:didv}
+\end{equation}
+
+Here $g_d$ is the \term{incremental conductance of the diode}.
+
+\subsection{Dynamic resistance}
+
+The \term{dynamic resistance} of the array is
+
+\begin{equation}
+r_d = -\frac{\mathrm{d}V}{\mathrm{d}I} = -\left(\frac{\mathrm{d}I}{\mathrm{d}V}\right)^{-1}.
+\label{eq:rd}
+\end{equation}
+
+This single number is the most important quantity in the whole control analysis.
+It describes how the array behaves to small perturbations:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item Well below $\Vmp$ the curve is nearly flat, $\mathrm{d}I/\mathrm{d}V$ is
+        almost zero, and $r_d$ is very large. The array behaves like a
+        \emph{current source}.
+  \item Well above $\Vmp$ the curve falls steeply, and $r_d$ is small. The array
+        behaves like a \emph{voltage source}.
+  \item Exactly at the MPP, combining~\eqref{eq:dpdv} and~\eqref{eq:rd} gives
+        the clean result
+        \begin{equation}
+          r_d\big|_{\mathrm{MPP}} = \frac{\Vmp}{\Imp},
+          \label{eq:rdmpp}
+        \end{equation}
+        that is, the dynamic resistance equals the static resistance at that one
+        point.
+\end{itemize}
+
+Chapter~\ref{ch:converter} shows that $r_d$ appears directly in the damping term
+of the converter's characteristic polynomial, so this order-of-magnitude swing
+in $r_d$ becomes an order-of-magnitude swing in closed-loop behaviour.
+
+\section{DC--DC conversion}
+
+\subsection{Why a converter is needed at all}
+
+The array delivers maximum power at one particular voltage, which moves with
+weather. The load, here a DC bus feeding an inverter, requires a different and
+essentially fixed voltage. A \term{DC--DC converter} sits between them and, by
+adjusting its \term{duty ratio}, chooses what voltage the array is held at while
+still delivering into the fixed bus. The converter is therefore the actuator of
+the MPPT control system.
+
+\subsection{The boost converter}
+
+A \term{boost converter} produces an output voltage higher than its input. It
+consists of an inductor, a controlled switch to ground, a diode and an output
+capacitor. Over one switching period $T_{sw} = 1/f_{sw}$ the switch is closed
+for a fraction $d$ of the time, the \term{duty ratio}. In the ideal lossless
+steady state,
+
+\begin{equation}
+V_{dc} = \frac{\vpv}{1 - D} \qquad\Longleftrightarrow\qquad D = 1 - \frac{\vpv}{V_{dc}} .
+\label{eq:boostratio}
+\end{equation}
+
+Increasing $d$ therefore \emph{lowers} the PV voltage for a fixed bus voltage,
+which is an important sign to keep straight in the control design.
+
+A boost topology is the right choice here because the array MPP voltage,
+\SI{157.8}{\volt}, is below the \SI{400}{\volt} bus at every irradiance of
+interest, so the converter never needs to buck.
+
+\subsection{Continuous conduction mode}
+
+If the inductor current never reaches zero within a switching period, the
+converter is in \term{continuous conduction mode} (CCM) and~\eqref{eq:boostratio}
+holds. The peak-to-peak inductor current ripple in CCM is
+
+\begin{equation}
+\Delta i_L = \frac{\vpv\, D}{f_{sw} L},
+\label{eq:iripple}
+\end{equation}
+
+and CCM requires $i_L > \Delta i_L / 2$. Below that the converter enters
+\term{discontinuous conduction mode} (DCM), where the small-signal model changes
+character. Section~\ref{sec:sizing} checks CCM across the operating range.
+
+\subsection{State-space averaging}
+
+The converter is a switched, and therefore time-varying, system. \term{State
+space averaging}~\cite{middlebrook} replaces the two switch states with their
+duty-weighted average over one switching period. The result is a continuous,
+nonlinear model whose states are the slowly varying averages of the real
+waveforms, valid for frequencies well below $f_{sw}$. That model can then be
+linearised about an operating point in the usual way. Chapter~\ref{ch:converter}
+does this, and Chapter~\ref{ch:physical} checks the result against a genuine
+switched circuit simulation.
+
+\section{Feedback control concepts}
+
+\subsection{Plant, controller and loop gain}
+
+The \term{plant} is the physical system to be controlled, here the converter and
+array. The \term{controller} computes the input to the plant from the measured
+error. Breaking the feedback path and multiplying the transfer functions around
+it gives the \term{loop gain} $L(s)$. Closed-loop stability is decided by
+$1 + L(s) = 0$.
+
+\subsection{Stability margins}
+
+The \term{gain crossover frequency} $\omega_c$ is where $|L(j\omega_c)| = 1$; it
+is the practical bandwidth of the loop. The \term{phase margin} is
+
+\begin{equation}
+\mathrm{PM} = 180^\circ + \angle L(j\omega_c),
+\end{equation}
+
+the extra phase lag that would drive the loop to the edge of instability. A
+design target of at least \SI{45}{\degree} is conventional. \term{Gain margin}
+is the corresponding factor by which the gain could rise before instability.
+
+An important subtlety used in Chapter~\ref{ch:control}: if $|L|$ crosses unity
+more than once, a single phase margin number is misleading, and the smallest of
+the margins at all crossings must be reported. Resonant plants make this
+situation common.
+
+\subsection{The proportional--integral controller}
+
+The \term{PI controller} has transfer function
+
+\begin{equation}
+C(s) = K_p + \frac{K_i}{s} .
+\label{eq:pi}
+\end{equation}
+
+The integral term guarantees zero steady-state error to a constant reference,
+because any persistent error would integrate without bound. The proportional
+term sets the bandwidth. The zero of the controller sits at $\omega_z = K_i/K_p$
+and is placed below crossover so that its phase lag has decayed by the time it
+matters.
+
+Because the physical actuator saturates, $d$ must lie in $[0,1]$, a bare
+integrator can wind up: the integral state grows while the output is stuck at a
+limit, causing a long overshoot on recovery. The implementation used here
+includes \term{anti-windup} by back-calculation, feeding the difference between
+the requested and the delivered output back into the integrator.
+
+\subsection{Cascade control and timescale separation}
+
+\term{Cascade control} nests a fast inner loop inside a slower outer loop. The
+inner loop regulates a variable that responds quickly, here inductor current;
+the outer loop commands the inner loop's reference. If the inner loop is
+substantially faster, the outer loop can be designed as if the inner loop were
+an ideal, instantaneous follower. The benefits are that the inner loop linearises
+and damps the plant seen by the outer loop, and that current limiting becomes
+trivial because the inner reference is a current.
+
+\subsection{Extremum seeking}
+
+Standard feedback drives an error to zero when the desired value is known. In
+MPPT the desired voltage is \emph{not} known. \term{Extremum seeking control}
+solves this by adding a small sinusoidal \term{dither} to the command, measuring
+how the performance output responds at the dither frequency, and using that
+correlation as an estimate of the gradient. Formally, if the plant output is
+$P(v)$ and the command is $v = \hat v + A\sin\omega t$, then to first order
+
+\begin{equation}
+P \approx P(\hat v) + A \sin(\omega t)\, \frac{\mathrm{d}P}{\mathrm{d}v},
+\end{equation}
+
+so multiplying the high-pass filtered $P$ by $\sin\omega t$ and low-pass
+filtering yields $\tfrac{A}{2}\,\mathrm{d}P/\mathrm{d}v$. Integrating that
+estimate performs gradient ascent~\cite{krstic,leyva}. The price is the
+permanent dither, which costs a little power in steady state.
+
+\section{Measuring how well a tracker performs}
+
+\subsection{MPPT efficiency}
+
+The agreed figure of merit is \term{MPPT efficiency}, the fraction of available
+energy actually harvested over a test window:
+
+\begin{equation}
+\eta_{\mathrm{MPPT}} = \frac{\displaystyle\int_{t_0}^{t_1} \vpv(t)\, \ipv(t)\,\mathrm{d}t}
+                            {\displaystyle\int_{t_0}^{t_1} \Pmp\big(G(t), T_c(t)\big)\,\mathrm{d}t} .
+\label{eq:eta}
+\end{equation}
+
+The denominator requires knowing the true maximum at every instant, which is
+available in simulation because the model can be solved exactly. This is why
+Chapter~\ref{ch:pvmodel} insists on an exact MPP solver rather than an
+approximation.
+
+\subsection{Static and dynamic efficiency}
+
+\term{Static MPPT efficiency} is measured at constant irradiance and penalises
+only steady-state error and ripple. \term{Dynamic MPPT efficiency} is measured
+while irradiance changes and additionally penalises lag. The European standard
+EN 50530~\cite{en50530} defines trapezoidal irradiance ramps for exactly this
+purpose; Chapter~\ref{ch:benchmark} uses profiles of that form.

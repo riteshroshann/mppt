@@ -1,0 +1,171 @@
+\documentclass[12pt,a4paper,oneside]{report}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\let\Bbbk\relax
+\usepackage{amssymb}
+\usepackage{newtxtext,newtxmath}
+\usepackage[a4paper,top=1.1in,bottom=1.1in,left=1.25in,right=1.1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage[font=small,labelfont=bf,width=0.92\textwidth]{caption}
+\usepackage{enumitem}
+\usepackage{tocloft}
+\usepackage{microtype}
+\usepackage{emptypage}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,fit,backgrounds}
+\usepackage[american,siunitx]{circuitikz}
+\usepackage[hidelinks,bookmarksnumbered]{hyperref}
+
+\graphicspath{{../../results/figures/}}
+
+\definecolor{accent}{RGB}{0,86,140}
+\definecolor{rule}{RGB}{120,120,120}
+
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\raggedright}
+  {\normalfont\normalsize\color{accent}\MakeUppercase{\chaptertitlename}\ \thechapter}
+  {10pt}
+  {\color{black}}
+\titleformat{name=\chapter,numberless}[display]
+  {\normalfont\huge\bfseries\raggedright}{}{0pt}{\color{black}}
+\titlespacing*{\chapter}{0pt}{0pt}{28pt}
+
+\titleformat{\section}{\normalfont\large\bfseries}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries\itshape}{\thesubsubsection}{0.7em}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{12pt}{4pt}
+
+\pagestyle{empty}
+\makeatletter\let\ps@plain\ps@empty\makeatother
+\linespread{1.06}\selectfont
+
+\setlength{\parskip}{0.45em}
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.15}
+\sisetup{per-mode=symbol, detect-weight=true}
+\DeclareSIUnit\ohm{\ensuremath{\Omega}}
+\DeclareSIUnit\celsius{\ensuremath{^{\circ}}C}
+\DeclareSIUnit\degree{\ensuremath{^{\circ}}}
+\DeclareSIUnit\percent{\ensuremath{\%}}
+\DeclareSIUnit\electronvolt{eV}
+\DeclareSIPrefix\micro{\ensuremath{\mu}}{-6}
+
+\renewcommand{\cftchapfont}{\bfseries}
+\renewcommand{\cftchappagefont}{\bfseries}
+\setlength{\cftbeforechapskip}{6pt}
+
+\newcommand{\term}[1]{\textbf{#1}}
+\newcommand{\vpv}{v_{\mathrm{pv}}}
+\newcommand{\ipv}{i_{\mathrm{pv}}}
+\newcommand{\Vmp}{V_{\mathrm{mp}}}
+\newcommand{\Imp}{I_{\mathrm{mp}}}
+\newcommand{\Pmp}{P_{\mathrm{mp}}}
+\newcommand{\Voc}{V_{\mathrm{oc}}}
+\newcommand{\Isc}{I_{\mathrm{sc}}}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+
+\IfFileExists{logo.png}{%
+  \vspace*{0.35in}
+  \includegraphics[width=0.52\textwidth]{logo.png}\par
+  \vspace{0.45in}
+}{%
+  \vspace*{1.2in}
+}
+
+\vspace{0.15in}
+
+{\Huge\bfseries Solar Panel Maximum Power\\[0.25em] Point Tracking as a\\[0.25em] Control Problem\par}
+
+\vspace{0.4in}
+
+{\large\itshape Feedback control for operation near maximum power\\ under changing irradiance\par}
+
+\vspace{0.5in}
+
+\vspace{0.75in}
+
+{\large\bfseries Roshan\par}
+
+\vspace{0.3in}
+
+{\large A project report on the modelling, control design, simulation\\ and physical realisation of a photovoltaic maximum power\\ point tracking system\par}
+
+\vfill
+
+{\large \today\par}
+\end{titlepage}
+
+\pagenumbering{roman}
+\setcounter{page}{1}
+\pagestyle{empty}
+
+\tableofcontents
+\clearpage
+\listoffigures
+\clearpage
+\listoftables
+\clearpage
+
+\input{ch00_abbreviations}
+
+\clearpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{ch01_project_statement}
+\input{ch02_theory}
+\input{ch03_pv_model}
+\input{ch04_converter}
+\input{ch05_control}
+\input{ch06_mppt}
+\input{ch07_benchmark}
+\input{ch08_software_workflow}
+\input{ch09_physical_model}
+\input{ch10_conclusions}
+
+\appendix
+\input{appendix}
+
+\begin{thebibliography}{99}
+\addcontentsline{toc}{chapter}{Bibliography}
+
+\bibitem{desoto} W.~De~Soto, S.~A.~Klein and W.~A.~Beckman, ``Improvement and validation of a model for photovoltaic array performance,'' \emph{Solar Energy}, vol.~80, no.~1, pp.~78--88, 2006.
+
+\bibitem{villalva} M.~G.~Villalva, J.~R.~Gazoli and E.~R.~Filho, ``Comprehensive approach to modeling and simulation of photovoltaic arrays,'' \emph{IEEE Transactions on Power Electronics}, vol.~24, no.~5, pp.~1198--1208, 2009.
+
+\bibitem{erickson} R.~W.~Erickson and D.~Maksimovic, \emph{Fundamentals of Power Electronics}, 3rd ed. Springer, 2020.
+
+\bibitem{middlebrook} R.~D.~Middlebrook and S.~Cuk, ``A general unified approach to modelling switching-converter power stages,'' in \emph{IEEE Power Electronics Specialists Conference}, 1976, pp.~18--34.
+
+\bibitem{femia} N.~Femia, G.~Petrone, G.~Spagnuolo and M.~Vitelli, ``Optimization of perturb and observe maximum power point tracking method,'' \emph{IEEE Transactions on Power Electronics}, vol.~20, no.~4, pp.~963--973, 2005.
+
+\bibitem{hussein} K.~H.~Hussein, I.~Muta, T.~Hoshino and M.~Osakada, ``Maximum photovoltaic power tracking: an algorithm for rapidly changing atmospheric conditions,'' \emph{IEE Proceedings -- Generation, Transmission and Distribution}, vol.~142, no.~1, pp.~59--64, 1995.
+
+\bibitem{krstic} M.~Krsti\'{c} and H.-H.~Wang, ``Stability of extremum seeking feedback for general nonlinear dynamic systems,'' \emph{Automatica}, vol.~36, no.~4, pp.~595--601, 2000.
+
+\bibitem{leyva} R.~Leyva, C.~Alonso, I.~Queinnec, A.~Cid-Pastor, D.~Lagrange and L.~Martinez-Salamero, ``MPPT of photovoltaic systems using extremum seeking control,'' \emph{IEEE Transactions on Aerospace and Electronic Systems}, vol.~42, no.~1, pp.~249--258, 2006.
+
+\bibitem{esram} T.~Esram and P.~L.~Chapman, ``Comparison of photovoltaic array maximum power point tracking techniques,'' \emph{IEEE Transactions on Energy Conversion}, vol.~22, no.~2, pp.~439--449, 2007.
+
+\bibitem{en50530} CENELEC, \emph{EN 50530: Overall Efficiency of Grid Connected Photovoltaic Inverters}, 2010.
+
+\bibitem{kyocera} Kyocera Corporation, \emph{KC200GT High Efficiency Multicrystal Photovoltaic Module Datasheet}.
+
+\bibitem{astrom} K.~J.~{\AA}str\"{o}m and R.~M.~Murray, \emph{Feedback Systems: An Introduction for Scientists and Engineers}, 2nd ed. Princeton University Press, 2021.
+
+\end{thebibliography}
+
+\end{document}

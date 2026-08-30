@@ -1,0 +1,118 @@
+\chapter*{Nomenclature and Abbreviations}
+\addcontentsline{toc}{chapter}{Nomenclature and Abbreviations}
+\markboth{Nomenclature and Abbreviations}{}
+
+Every abbreviation used anywhere in this report is expanded here, and every
+symbol that appears in an equation is defined here as well as at its first use.
+
+\section*{Abbreviations}
+
+\begin{longtable}{@{}p{0.16\textwidth}p{0.80\textwidth}@{}}
+\toprule
+\textbf{Abbreviation} & \textbf{Full form and meaning} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Abbreviation} & \textbf{Full form and meaning} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+AC & Alternating Current. An electric current whose direction reverses periodically. \\
+ADC & Analogue-to-Digital Converter. A circuit that converts a continuous voltage into a number a processor can read. \\
+CCM & Continuous Conduction Mode. Operating condition of a switching converter in which the inductor current never falls to zero within a switching period. \\
+CVD & Colour Vision Deficiency. Reduced ability to distinguish certain colours; considered when choosing figure colours. \\
+DC & Direct Current. An electric current of constant direction. \\
+DCM & Discontinuous Conduction Mode. The complementary case to CCM, in which inductor current reaches zero and stays there for part of the switching period. \\
+DSP & Digital Signal Processor. A microprocessor specialised for real-time arithmetic, used here as the control processor. \\
+EMI & Electromagnetic Interference. Unwanted radiated or conducted electrical noise. \\
+ESC & Extremum Seeking Control. A feedback method that drives a system to the extremum of a measured performance function without knowing that function. \\
+ESR & Equivalent Series Resistance. The effective resistance in series with an ideal capacitor or inductor. \\
+GaN & Gallium Nitride. A wide-bandgap semiconductor used for fast, low-loss power transistors. \\
+IGBT & Insulated Gate Bipolar Transistor. A power switching device suited to higher voltages. \\
+INC & Incremental Conductance. An MPPT algorithm that compares the incremental conductance $\mathrm{d}I/\mathrm{d}V$ with the instantaneous conductance $-I/V$. \\
+I--V & Current--Voltage. Refers to the current-versus-voltage characteristic curve of a solar device. \\
+LC & Inductor--Capacitor. Refers to the resonant circuit formed by an inductor and a capacitor. \\
+LHP & Left Half Plane. The region of the complex plane with negative real part; poles there correspond to stable modes. \\
+LPV & Linear Parameter Varying. A model that is linear for each fixed value of a parameter, but whose coefficients depend on that parameter. \\
+LTI & Linear Time Invariant. A system whose behaviour is linear and does not change with time. \\
+MOSFET & Metal Oxide Semiconductor Field Effect Transistor. The transistor used as the controlled switch in the converter. \\
+MPP & Maximum Power Point. The single operating point on a photovoltaic I--V curve at which output power is greatest. \\
+MPPT & Maximum Power Point Tracking. The control function that keeps a photovoltaic source operating at or near its MPP. \\
+NOCT & Nominal Operating Cell Temperature. The cell temperature reached under a defined reference environment, used to estimate cell temperature in the field. \\
+ODE & Ordinary Differential Equation. \\
+P\&O & Perturb and Observe. An MPPT algorithm that repeatedly perturbs the operating point and keeps moving in whichever direction increased power. \\
+PCB & Printed Circuit Board. \\
+PI & Proportional--Integral. A controller whose output is a weighted sum of the error and the integral of the error. \\
+PID & Proportional--Integral--Derivative. A PI controller with an added derivative term; not used here. \\
+PM & Phase Margin. The additional phase lag that would make a stable feedback loop marginally stable. \\
+PS & Physical Signal. In Simscape, a directed signal carrying a physical quantity with units, as distinct from an electrical connection. \\
+P--V & Power--Voltage. Refers to the power-versus-voltage characteristic curve of a solar device. \\
+PV & Photovoltaic. Relating to the direct conversion of light into electricity. \\
+PWM & Pulse Width Modulation. Encoding a continuous command as the duty ratio of a fixed-frequency rectangular wave. \\
+RCC & Ripple Correlation Control. An MPPT method that correlates the converter's own switching ripple in power and voltage to estimate the power gradient. \\
+RHP & Right Half Plane. The region of the complex plane with positive real part; a zero there fundamentally limits achievable bandwidth. \\
+RK4 & Fourth-order Runge--Kutta. A numerical method for integrating ordinary differential equations. \\
+RMS & Root Mean Square. \\
+SiC & Silicon Carbide. A wide-bandgap semiconductor used for efficient power devices. \\
+STC & Standard Test Conditions. \SI{1000}{\watt\per\square\metre} irradiance, \SI{25}{\celsius} cell temperature, air mass 1.5 spectrum. \\
+\bottomrule
+\end{longtable}
+
+\section*{Symbols}
+
+\begin{longtable}{@{}p{0.16\textwidth}p{0.62\textwidth}p{0.14\textwidth}@{}}
+\toprule
+\textbf{Symbol} & \textbf{Meaning} & \textbf{Unit} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Symbol} & \textbf{Meaning} & \textbf{Unit} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+$a$ & Modified ideality factor, $a = n N_s k T_c / q$ & \si{\volt} \\
+$C_{\mathrm{pv}}$ & Input capacitance across the photovoltaic terminals & \si{\farad} \\
+$C_o$ & Output capacitance at the DC bus & \si{\farad} \\
+$d$ & Duty ratio, the fraction of each switching period the main switch conducts & -- \\
+$D$ & Steady-state value of the duty ratio & -- \\
+$E_g$ & Semiconductor bandgap energy & \si{\electronvolt} \\
+$f_{sw}$ & Switching frequency & \si{\hertz} \\
+$f_{c}$ & Loop gain crossover frequency & \si{\hertz} \\
+$G$ & Plane-of-array irradiance & \si{\watt\per\square\metre} \\
+$g$ & Slope of the I--V curve, $g = \mathrm{d}I/\mathrm{d}V$ & \si{\siemens} \\
+$i_L$ & Inductor current & \si{\ampere} \\
+$\ipv$ & Photovoltaic array terminal current & \si{\ampere} \\
+$I_0$ & Diode reverse saturation current & \si{\ampere} \\
+$I_{ph}$ & Photocurrent, the light-generated current & \si{\ampere} \\
+$\Isc$ & Short-circuit current & \si{\ampere} \\
+$\Imp$ & Current at the maximum power point & \si{\ampere} \\
+$k$ & Boltzmann constant, $\num{1.380649e-23}$ & \si{\joule\per\kelvin} \\
+$K_p$, $K_i$ & Proportional and integral gains of a PI controller & -- \\
+$L$ & Boost inductance & \si{\henry} \\
+$n$ & Diode ideality factor & -- \\
+$N_s$ & Number of cells in series within one module & -- \\
+$N_{sm}$, $N_{ps}$ & Modules in series, strings in parallel & -- \\
+$P$ & Photovoltaic output power & \si{\watt} \\
+$\Pmp$ & Power at the maximum power point & \si{\watt} \\
+$q$ & Elementary charge, $\num{1.602176634e-19}$ & \si{\coulomb} \\
+$r_d$ & Dynamic resistance of the array, $r_d = -\mathrm{d}V/\mathrm{d}I$ & \si{\ohm} \\
+$R_L$ & Equivalent series resistance of the boost inductor & \si{\ohm} \\
+$R_s$ & Lumped series resistance of the photovoltaic model & \si{\ohm} \\
+$R_{sh}$ & Shunt (parallel) resistance of the photovoltaic model & \si{\ohm} \\
+$T_c$ & Cell temperature & \si{\kelvin} \\
+$T_s$ & Sampling period of a discrete controller & \si{\second} \\
+$V_{dc}$ & DC bus voltage & \si{\volt} \\
+$\vpv$ & Photovoltaic array terminal voltage & \si{\volt} \\
+$\Voc$ & Open-circuit voltage & \si{\volt} \\
+$\Vmp$ & Voltage at the maximum power point & \si{\volt} \\
+$\alpha_{Isc}$ & Temperature coefficient of short-circuit current & \si{\ampere\per\kelvin} \\
+$\beta_{Voc}$ & Temperature coefficient of open-circuit voltage & \si{\volt\per\kelvin} \\
+$\zeta$ & Damping ratio of a second-order mode & -- \\
+$\eta_{\mathrm{MPPT}}$ & MPPT efficiency, harvested energy divided by available energy & -- \\
+$\omega_n$ & Undamped natural frequency & \si{\radian\per\second} \\
+\bottomrule
+\end{longtable}

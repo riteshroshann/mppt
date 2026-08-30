@@ -1,0 +1,174 @@
+\chapter{Parameters and Reference Data}
+\label{app:params}
+
+\section{Module datasheet values}
+
+\begin{table}[htbp]
+\centering
+\caption{Datasheet values at standard test conditions for the two modules in the library.}
+\label{tab:datasheets}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Quantity} & \textbf{Kyocera KC200GT} & \textbf{SunPower SPR-305E-WHT-D} \\
+\midrule
+Technology & multicrystalline silicon & monocrystalline silicon \\
+Cells in series $N_s$ & 54 & 96 \\
+$\Voc$ (\si{\volt}) & 32.90 & 64.20 \\
+$\Isc$ (\si{\ampere}) & 8.21 & 5.96 \\
+$\Vmp$ (\si{\volt}) & 26.30 & 54.70 \\
+$\Imp$ (\si{\ampere}) & 7.61 & 5.58 \\
+$\Pmp$ (\si{\watt}) & 200.14 & 305.23 \\
+$\beta_{Voc}$ (\si{\percent\per\kelvin}) & $-0.3739$ & $-0.27269$ \\
+$\alpha_{Isc}$ (\si{\percent\per\kelvin}) & $+0.0387$ & $+0.061745$ \\
+Fill factor & 0.741 & 0.797 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Identified model parameters}
+
+\begin{table}[htbp]
+\centering
+\caption{Identified reference parameters, module level, at standard test conditions.}
+\label{tab:bothfits}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Parameter} & \textbf{KC200GT} & \textbf{SPR-305E} \\
+\midrule
+$I_{ph,ref}$ (\si{\ampere}) & 8.22713 & 5.96570 \\
+$I_{0,ref}$ (\si{\ampere}) & \num{4.3964e-10} & \num{6.4598e-12} \\
+$R_{s,ref}$ (\si{\ohm}) & 0.33501 & 0.37350 \\
+$R_{sh,ref}$ (\si{\ohm}) & 160.6015 & 393.76 \\
+$a_{ref}$ (\si{\volt}) & 1.39246 & 2.33250 \\
+Ideality factor $n$ & 1.0036 & 0.9457 \\
+Worst datasheet error (\si{\percent}) & \num{1.4e-14} & \num{7.0e-11} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Converter and controller parameters}
+
+\begin{table}[htbp]
+\centering
+\caption{Converter parameters and the design reasoning behind each.}
+\label{tab:convparams}
+\begin{tabular}{@{}llp{0.46\textwidth}@{}}
+\toprule
+\textbf{Parameter} & \textbf{Value} & \textbf{Basis} \\
+\midrule
+Array topology & $6 \times 2$ & \SI{2402}{\watt} at STC, $\Vmp$ below the bus at all irradiances \\
+$V_{dc}$ & \SI{400}{\volt} & typical single-phase string inverter bus \\
+$f_{sw}$ & \SI{20}{\kilo\hertz} & above audio, low enough for silicon carbide efficiency \\
+$L$ & \SI{1.5}{\milli\henry} & \SI{20}{\percent} ripple at the STC maximum power point \\
+$C_{\mathrm{pv}}$ & \SI{100}{\micro\farad} & PV voltage ripple below \SI{0.25}{\volt} \\
+$C_o$ & \SI{470}{\micro\farad} & bus stiffening \\
+$R_L$ & \SI{0.15}{\ohm} & realistic winding resistance for this inductance \\
+LC corner & \SI{411}{\hertz} & consequence of $L$ and $C_{\mathrm{pv}}$ \\
+Steady duty at STC & \num{0.6112} & equation~\eqref{eq:dutyexact} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Controller gains.}
+\label{tab:gains}
+\begin{tabular}{@{}llrl@{}}
+\toprule
+\textbf{Loop} & \textbf{Gain} & \textbf{Value} & \textbf{Basis} \\
+\midrule
+Inner current & $K_{p,i}$ & \num{0.04712} & $L\omega_{ci}/V_{dc}$, $f_{ci} = \SI{2}{\kilo\hertz}$ \\
+Inner current & $K_{i,i}$ & \num{59.22} & zero a decade below crossover \\
+Outer voltage & $K_{p,v}$ & \num{0.15708} & $C_{\mathrm{pv}}\omega_{cv}$, $f_{cv} = \SI{250}{\hertz}$ \\
+Outer voltage & $K_{i,v}$ & \num{49.35} & zero a fifth of crossover \\
+Single-loop baseline & $K_p$ & \num{2.264e-3} & unity loop gain at \SI{130}{\hertz} \\
+Single-loop baseline & $K_i$ & \num{0.3699} & zero at \SI{26}{\hertz} \\
+Sample period, both loops & $T_s$ & \SI{50}{\micro\second} & one switching period \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Tracker parameters}
+
+\begin{table}[htbp]
+\centering
+\caption{Maximum power point tracker settings used for all comparisons.}
+\label{tab:trackparams}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Tracker} & \textbf{Parameter} & \textbf{Value} \\
+\midrule
+All hill climbers & sample period & \SI{20}{\milli\second} \\
+Perturb and observe & step & \SI{1.5}{\volt} \\
+Perturb and observe, variable & step bounds & \SI{0.25}{} to \SI{6}{\volt} \\
+Perturb and observe, variable & adaptation gain & \num{0.06} \\
+Incremental conductance & step & \SI{1.5}{\volt} \\
+Incremental conductance & tolerance & \num{2e-3} \\
+Extremum seeking & sample period & \SI{200}{\micro\second} \\
+Extremum seeking & dither frequency & \SI{25}{\hertz} \\
+Extremum seeking & dither amplitude & \SI{3}{\volt} \\
+Extremum seeking & adaptation gain & \num{20} \\
+Extremum seeking & washout and low-pass corner & \SI{5}{\hertz} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Physical constants}
+
+\begin{table}[htbp]
+\centering
+\caption{Physical constants used.}
+\label{tab:constants}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Constant} & \textbf{Symbol} & \textbf{Value} \\
+\midrule
+Boltzmann constant & $k$ & \SI{1.380649e-23}{\joule\per\kelvin} \\
+Boltzmann constant in electronvolts & $k$ & \SI{8.617333262e-5}{\electronvolt\per\kelvin} \\
+Elementary charge & $q$ & \SI{1.602176634e-19}{\coulomb} \\
+Silicon bandgap at \SI{25}{\celsius} & $E_{g,ref}$ & \SI{1.121}{\electronvolt} \\
+Bandgap temperature coefficient & & \num{-2.677e-4} per kelvin, relative \\
+Reference irradiance & $G_{ref}$ & \SI{1000}{\watt\per\square\metre} \\
+Reference temperature & $T_{ref}$ & \SI{298.15}{\kelvin} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\chapter{Reproducing the Results}
+\label{app:repro}
+
+\section{Software required}
+
+MATLAB R2025a with Control System Toolbox, Simulink, Simscape and Optimization
+Toolbox. Simscape Electrical is \emph{not} required.
+
+\section{Commands}
+
+\begin{table}[htbp]
+\centering
+\caption{Commands and what they produce.}
+\label{tab:commands}
+\begin{tabular}{@{}p{0.36\textwidth}p{0.56\textwidth}@{}}
+\toprule
+\textbf{Command} & \textbf{Produces} \\
+\midrule
+\texttt{startup\_mpptlab} & puts the library on the MATLAB path \\
+\texttt{run\_all} & the entire pipeline, every figure and table, and the test suite \\
+\texttt{s01\_pv\_characterisation} & Figure~\ref{fig:pvchar}, Tables~\ref{tab:pvfit},~\ref{tab:pvvalid},~\ref{tab:pvops} \\
+\texttt{s02\_plant\_analysis} & Figure~\ref{fig:plantbode}, Tables~\ref{tab:envG},~\ref{tab:envV} \\
+\texttt{s03\_control\_design} & Figure~\ref{fig:controldesign}, Tables~\ref{tab:singleloop},~\ref{tab:cascadeG} \\
+\texttt{s04\_mppt\_comparison} & Figure~\ref{fig:mpptcompare}, Tables~\ref{tab:stepcompare},~\ref{tab:tradeoff} \\
+\texttt{s05\_dynamic\_benchmark} & Figure~\ref{fig:benchmark}, Tables~\ref{tab:dyneta},~\ref{tab:dyndef} \\
+\texttt{run\_switched\_validation} & Figure~\ref{fig:swvalid}, Table~\ref{tab:swvalid} \\
+\texttt{export\_model\_diagram} & Figure~\ref{fig:slxmodel} \\
+\texttt{runtests('tests')} & the 27 unit tests \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Runtime}
+
+The full pipeline takes about \SI{11}{\minute}. The dynamic benchmark of
+Chapter~\ref{ch:benchmark} accounts for roughly \SI{6}{\minute} of that, because
+it simulates \SI{121}{\second} of closed-loop operation for each of four
+trackers, and the switched validation for a further \SI{2.6}{\minute}.

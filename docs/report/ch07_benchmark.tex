@@ -1,0 +1,163 @@
+\chapter{Dynamic Benchmarking}
+\label{ch:benchmark}
+
+\section{Why a standard test is needed}
+
+Chapter~\ref{ch:mppt} ended with four trackers separated by less than
+\SI{0.5}{\percent} on a step test, in an order that turns out not to survive a
+more demanding test. This is the normal situation in MPPT work: results depend
+heavily on the test signal, so comparisons are only meaningful against an agreed
+one.
+
+The European standard EN 50530~\cite{en50530} defines such a test. It specifies
+trapezoidal irradiance profiles, ramping linearly between two levels, dwelling,
+ramping back, and repeating, with prescribed ramp rates. Two classes are
+defined, a low-to-medium class between \SI{10}{\percent} and \SI{50}{\percent}
+of nominal irradiance with gentle slopes, and a medium-to-high class between
+\SI{30}{\percent} and \SI{100}{\percent} with steeper slopes. The figure of
+merit is the dynamic MPPT efficiency of~\eqref{eq:eta}.
+
+\section{Test profiles used}
+
+The profiles used here follow the medium-to-high class: trapezoidal ramps
+between \SI{300}{} and \SI{1000}{\watt\per\square\metre} at \SI{25}{\celsius},
+with a \SI{1}{\second} dwell at each plateau and a \SI{1}{\second} settling
+period before the first ramp. Four ramp rates were tested: \SI{25}{},
+\SI{50}{}, \SI{100}{} and \SI{200}{\watt\per\square\metre\per\second}.
+
+Two deviations from the standard are stated explicitly for honesty. First, one
+up-down cycle is used per slope rather than the full repetition count, which
+keeps each simulation to a practical length while still exercising both ramp
+directions. Second, the fastest rate of \SI{200}{\watt\per\square\metre\per\second}
+is above the standard's range, and was included deliberately to push the
+trackers past the point where they can keep up. Neither deviation affects the
+comparison between trackers, since all four see identical profiles.
+
+\section{Computing the efficiency honestly}
+
+The denominator of~\eqref{eq:eta} requires the true available power at every
+instant. Evaluating the exact maximum power point at each of the roughly
+\num{500000} simulation samples would be prohibitively slow, so a lookup is
+built once: the exact MPP is solved on a grid of \num{240} irradiance values
+spanning the profile range, and the result is interpolated with a shape
+preserving cubic. Because $\Pmp(G)$ is smooth and nearly linear over this range,
+the interpolation error is far below the differences being measured.
+
+The score window excludes the first second, so that the initial acquisition
+transient, which is an artefact of the arbitrary starting point, does not
+contaminate the tracking measurement.
+
+\section{Results}
+
+\begin{table}[htbp]
+\centering
+\caption{Dynamic MPPT efficiency (\si{\percent}) on trapezoidal ramps between \SI{300}{} and \SI{1000}{\watt\per\square\metre}.}
+\label{tab:dyneta}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Tracker} & \SI{25}{} & \SI{50}{} & \SI{100}{} & \SI{200}{\watt\per\square\metre\per\second} \\
+\midrule
+P\&O, fixed step        & 99.952 & 99.930 & 99.871 & 99.483 \\
+P\&O, variable step     & 99.836 & 98.726 & \textbf{93.141} & 99.652 \\
+Incremental conductance & 99.950 & 99.926 & 99.871 & 99.458 \\
+Extremum seeking        & 99.851 & 99.851 & 99.851 & \textbf{99.850} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Worst instantaneous power shortfall (\si{\watt}) on the same tests, against a peak available power of \SI{2402}{\watt}.}
+\label{tab:dyndef}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Tracker} & \SI{25}{} & \SI{50}{} & \SI{100}{} & \SI{200}{\watt\per\square\metre\per\second} \\
+\midrule
+P\&O, fixed step        & 6.24  & 8.21   & 23.37  & 116.17 \\
+P\&O, variable step     & 43.58 & 240.29 & 704.85 & 40.50 \\
+Incremental conductance & 6.84  & 9.15   & 17.93  & 129.26 \\
+Extremum seeking        & \textbf{6.43} & \textbf{6.63} & \textbf{7.04} & \textbf{7.98} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{s05_dynamic_benchmark.png}
+\caption[Dynamic MPPT benchmark]{Dynamic benchmark results. Top left, efficiency against ramp rate; extremum seeking is flat while the hill-climbers degrade, and the variable-step P\&O collapses at \SI{100}{\watt\per\square\metre\per\second}. Top right, the test profile. Bottom left, voltage tracking, where the runaway excursion of the variable-step tracker down past \SI{90}{\volt} is plainly visible. Bottom right, instantaneous power shortfall.}
+\label{fig:benchmark}
+\end{figure}
+
+\section{Discussion}
+
+\subsection{Extremum seeking is essentially rate-independent}
+
+The most striking result in Table~\ref{tab:dyneta} is the ESC row: \SI{99.851}{},
+\SI{99.851}{}, \SI{99.851}{}, \SI{99.850}{\percent}. An eightfold change in ramp
+rate produces a change of \SI{0.001}{\percent}. Its worst instantaneous
+shortfall rises only from \SI{6.4}{} to \SI{8.0}{\watt}, whereas the
+hill-climbers rise to \SI{116}{} and \SI{129}{\watt}.
+
+The reason is structural. ESC estimates the gradient continuously from a dither
+at a known frequency, and the washout filter explicitly rejects the slowly
+varying component of power. A slow irradiance ramp is precisely such a slowly
+varying component, so ESC is largely blind to it by construction. The
+hill-climbers, by contrast, sample power at \SI{50}{\hertz} and cannot
+distinguish a power change caused by their own perturbation from one caused by
+the ramp.
+
+This is a genuinely control-theoretic advantage: frequency separation between
+the probe and the disturbance, rather than a better search heuristic.
+
+\subsection{The cost of that immunity}
+
+ESC pays for this with its dither. Under constant irradiance it scores
+\SI{99.55}{\percent} against \SI{99.94}{\percent} for fixed-step P\&O
+(Table~\ref{tab:stepcompare}), because the \SI{6}{\volt} peak-to-peak excursion
+sits permanently on a curved P--V characteristic and the average power on an arc
+is below the power at its centre. The optimal choice therefore depends on the
+site: ESC for locations with frequent fast irradiance transients, P\&O for
+stable clear-sky conditions.
+
+\subsection{Fixed-step P\&O and INC remain nearly identical}
+
+The two classical hill-climbers agree to within \SI{0.03}{\percent} at every
+ramp rate. As argued in Chapter~\ref{ch:mppt} this is expected: with the same
+step and sample period they compute the sign of the same quantity by two routes.
+INC's advantages are real but appear only in the presence of measurement noise
+and quantisation, which this idealised simulation does not include. Adding
+sensor noise models is identified as future work in
+Chapter~\ref{ch:conclusions}.
+
+\subsection{The variable-step failure}
+
+The variable-step P\&O, which was the \emph{best} tracker under the step test,
+is by far the worst here, dropping to \SI{93.14}{\percent} at
+\SI{100}{\watt\per\square\metre\per\second} with a peak shortfall of
+\SI{705}{\watt}, nearly a third of the available power.
+
+The mechanism is the drift problem of Section~\ref{sec:drift} amplified by the
+adaptive rule. The step size is made proportional to $|\Delta P / \Delta V|$,
+which is intended to shrink the step near the flat peak and enlarge it on the
+steep flanks. During a rising ramp, though, the algorithm locks into the wrong
+direction and starts moving away from the peak. As it does so
+$|\mathrm{d}P/\mathrm{d}V|$ \emph{grows}, so the adaptive rule enlarges the
+step, which moves it further away faster. The feedback is positive. The bottom
+left panel of Figure~\ref{fig:benchmark} shows the excursion running from
+\SI{158}{\volt} down past \SI{90}{\volt} before the ramp ends and the algorithm
+recovers.
+
+The non-monotonic efficiency across ramp rates, worst at \SI{100}{} but
+acceptable at \SI{200}{\watt\per\square\metre\per\second}, is consistent with
+this explanation: whether a runaway happens depends on the phase relationship
+between the perturbation sequence and the ramp, not smoothly on the ramp rate.
+
+This result is reported rather than tuned away because it is instructive. It
+demonstrates that an algorithm modification which improves the usual benchmark
+can introduce a serious failure mode elsewhere, and that positive feedback
+inside an adaptation rule deserves the same stability scrutiny as the main
+control loop. The standard remedy in the literature is to add an irradiance
+change detector, which tests whether a large $\Delta P$ was accompanied by a
+correspondingly small $\Delta V$ and, if so, suppresses the direction reversal.
+Implementing and validating such a drift-free variant is the most immediately
+valuable extension to this project.

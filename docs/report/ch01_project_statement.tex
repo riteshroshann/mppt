@@ -1,0 +1,182 @@
+\chapter{Project Statement and Scope}
+\label{ch:statement}
+
+\section{The project as originally stated}
+
+The project was defined as follows.
+
+\begin{quote}
+\textbf{Project Title:} Solar Panel Maximum Power Point Tracking as a Control
+Problem.
+
+Core idea is to use feedback control to maintain operations near maximum power
+despite changing irradiance. In MATLAB, need to model PV model, MPPT model, and
+control analysis. In physical model, need solar panel and DC-DC model.
+\end{quote}
+
+Everything in this report follows from that statement. This first chapter
+unpacks it: what each phrase means, what a complete answer has to contain, and
+how the work was organised to deliver it.
+
+\section{Reading the statement}
+
+\subsection{``Maximum power point''}
+
+A solar panel is neither a voltage source nor a current source. Its terminal
+current depends nonlinearly on its terminal voltage, and the product of the two,
+the delivered power, has a single interior maximum. That maximum is the
+\term{maximum power point} (MPP). Operating anywhere else wastes energy that the
+sunlight already delivered to the panel.
+
+\subsection{``Despite changing irradiance''}
+
+The location of the MPP is not fixed. It moves when the \term{irradiance}, the
+optical power per unit area reaching the panel, changes because of clouds, time
+of day or shading. It also moves when the cell temperature changes. So the
+problem is not to find a number once; it is to \emph{track} a moving target
+continuously, in real time, using only measurements of terminal voltage and
+terminal current.
+
+\subsection{``As a control problem''}
+
+This is the phrase that sets the character of the whole project. Much of the
+published work on MPPT treats it as an \emph{algorithm} question: which search
+rule finds the peak fastest. That framing hides the fact that the search rule
+sits on top of a physical plant, a switching power converter, whose dynamics
+decide whether the search rule can work at all.
+
+Treating MPPT as a control problem means asking the questions a control engineer
+would ask:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item What exactly is the plant, and what is its transfer function?
+  \item How do the plant dynamics change as the operating point moves along the
+        I--V curve and as irradiance changes?
+  \item What is the control input, what is the measured output, and what is the
+        error signal?
+  \item What stability margins does the closed loop have, and are they
+        maintained over the whole operating envelope?
+  \item What fundamental limits, right half plane zeros, resonances, sampling
+        delay, bound the achievable bandwidth?
+  \item Given those limits, how fast can a tracker legitimately be, and what
+        does it cost in steady-state accuracy?
+\end{itemize}
+
+A central result of this project, developed in
+Chapter~\ref{ch:converter} and Chapter~\ref{ch:control}, is that these questions
+have sharp and somewhat surprising answers, and that the answers explain the
+behaviour of the classical MPPT algorithms rather than merely sitting alongside
+them.
+
+\subsection{``In MATLAB, need to model PV model, MPPT model, and control analysis''}
+
+Three deliverables on the analysis side:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item A \term{photovoltaic model}: a mathematical description of the panel
+        accurate enough that its curvature, not just its three datasheet points,
+        can be trusted. Chapter~\ref{ch:pvmodel}.
+  \item An \term{MPPT model}: implementations of the tracking algorithms as
+        proper discrete-time controllers with defined sample rates and states,
+        so that they can be compared fairly. Chapter~\ref{ch:mppt}.
+  \item A \term{control analysis}: linearisation, frequency response, stability
+        margins and robustness across the operating envelope.
+        Chapters~\ref{ch:converter} and~\ref{ch:control}.
+\end{enumerate}
+
+\subsection{``In physical model, need solar panel and DC-DC model''}
+
+A separate deliverable: a model of the actual hardware, not an idealised
+abstraction. The panel appears as a physical two-terminal electrical device, and
+the \term{DC--DC converter}, the switching circuit that transforms one direct
+voltage into another, appears as a real circuit with a transistor that switches
+at \SI{20}{\kilo\hertz}, a diode, an inductor with resistance and capacitors.
+Chapter~\ref{ch:physical} covers this, together with the hardware required to
+build it.
+
+\section{What a complete answer requires}
+
+Putting those readings together, a complete project needs all of the following,
+and each is delivered in the chapter named.
+
+\begin{longtable}{@{}p{0.40\textwidth}p{0.42\textwidth}p{0.12\textwidth}@{}}
+\toprule
+\textbf{Requirement} & \textbf{How it is met} & \textbf{Chapter} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Requirement} & \textbf{How it is met} & \textbf{Chapter} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+A panel model valid away from the datasheet points & Five-parameter single-diode model with De Soto translation, parameters identified from five simultaneous datasheet constraints & \ref{ch:pvmodel} \\
+Ground truth to score trackers against & Exact maximum power point by root solve on the analytic power gradient & \ref{ch:pvmodel} \\
+A converter model suitable for control design & State-space averaged boost converter, linearised analytically, Jacobian verified against finite differences & \ref{ch:converter} \\
+Understanding of how the plant changes & Operating envelope sweep in irradiance and along the I--V curve & \ref{ch:converter} \\
+A controller with quantified margins & Cascaded current and voltage loops, margins computed over the envelope, compared against a single-loop baseline & \ref{ch:control} \\
+MPPT algorithms implemented fairly & Common tracker interface, identical sample rate and identical inner control loops & \ref{ch:mppt} \\
+An objective comparison metric & Dynamic MPPT efficiency on EN 50530-style irradiance ramps & \ref{ch:benchmark} \\
+Reproducibility and correctness evidence & Scripted workflow and 27 automated unit tests & \ref{ch:software} \\
+A physical circuit model & Switched Simscape model with a custom photovoltaic component, cross-validated against the averaged model & \ref{ch:physical} \\
+A route to hardware & Component selection, ratings, sensing, protection, and a staged build plan & \ref{ch:physical} \\
+\end{longtable}
+
+\section{System chosen for study}
+
+All results in this report are for one concrete system, so that numbers can be
+compared directly from chapter to chapter.
+
+\begin{table}[htbp]
+\centering
+\caption{The system under study.}
+\label{tab:system}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Item} & \textbf{Value} & \textbf{Note} \\
+\midrule
+Module & Kyocera KC200GT & \SI{200}{\watt}, 54 cells, multicrystalline silicon \\
+Array & 6 series $\times$ 2 parallel & \SI{2402}{\watt} at STC \\
+Array MPP at STC & \SI{157.8}{\volt}, \SI{15.22}{\ampere} & \\
+Converter & Boost & PV side to DC bus \\
+Inductance $L$ & \SI{1.5}{\milli\henry} & \SI{20}{\percent} current ripple \\
+Input capacitance $C_{\mathrm{pv}}$ & \SI{100}{\micro\farad} & sets PV voltage ripple \\
+Inductor resistance $R_L$ & \SI{0.15}{\ohm} & \\
+Switching frequency $f_{sw}$ & \SI{20}{\kilo\hertz} & \\
+DC bus $V_{dc}$ & \SI{400}{\volt} & treated as stiff \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The KC200GT was chosen because its datasheet is widely used as a modelling
+benchmark in the literature~\cite{villalva}, which makes the extracted
+parameters checkable against published values. The array size, roughly
+\SI{2.4}{\kilo\watt} into a \SI{400}{\volt} bus, is representative of the
+photovoltaic input stage of a small single-phase string inverter.
+
+\section{The control architecture adopted}
+
+The architecture that emerges from the analysis, and which the rest of the
+report develops and justifies, is a three-layer hierarchy separated by
+timescale.
+
+\begin{table}[htbp]
+\centering
+\caption{The three-layer control hierarchy and its timescale separation.}
+\label{tab:hierarchy}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Layer} & \textbf{Controlled variable} & \textbf{Command it issues} & \textbf{Bandwidth} \\
+\midrule
+MPPT & PV power (indirectly) & voltage reference $\Vmp^\ast$ & \SI{50}{\hertz} \\
+Outer loop & PV voltage $\vpv$ & inductor current reference & \SI{250}{\hertz} \\
+Inner loop & inductor current $i_L$ & duty ratio $d$ & \SI{2}{\kilo\hertz} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Each layer is roughly eight times slower than the one beneath it. That
+separation is what allows each to be designed as though the layer below were
+instantaneous and the layer above were frozen, and Chapter~\ref{ch:control}
+verifies that the assumption holds by computing margins on the full-order model
+rather than on the simplified one used for design.

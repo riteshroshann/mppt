@@ -1,0 +1,203 @@
+\chapter{Software Architecture and Workflow}
+\label{ch:software}
+
+\section{The workflow end to end}
+
+The project was built as a pipeline in which each stage is verified before the
+next depends on it. Figure~\ref{fig:workflow} shows the whole chain.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  node distance=6mm,
+  stage/.style={draw, rounded corners=2pt, minimum height=9mm, text width=36mm, align=center},
+  check/.style={draw, dashed, rounded corners=2pt, minimum height=8mm, text width=36mm, align=center, font=\footnotesize},
+  >={Stealth[length=2.2mm]}
+]
+\node[stage] (ds) {Manufacturer datasheet\\ \footnotesize $\Voc,\Isc,\Vmp,\Imp,\beta_{Voc}$};
+\node[stage, below=of ds] (fit) {Five-parameter identification\\ \footnotesize simultaneous nonlinear solve};
+\node[stage, below=of fit] (pv) {PV array model\\ \footnotesize analytic $\mathrm{d}I/\mathrm{d}V$, exact MPP};
+\node[stage, below=of pv] (avg) {Averaged converter model\\ \footnotesize state-space, linearised};
+\node[stage, below=of avg] (ctrl) {Cascaded control design\\ \footnotesize margins over the envelope};
+\node[stage, below=of ctrl] (mppt) {MPPT layer\\ \footnotesize P\&O, INC, ESC};
+\node[stage, below=of mppt] (bench) {Dynamic benchmark\\ \footnotesize EN 50530-style ramps};
+\node[stage, below=of bench] (sw) {Switched Simscape model\\ \footnotesize real devices at \SI{20}{\kilo\hertz}};
+\node[stage, below=of sw] (hw) {Hardware plan\\ \footnotesize ratings, sensing, protection};
+
+\foreach \a/\b in {ds/fit, fit/pv, pv/avg, avg/ctrl, ctrl/mppt, mppt/bench, bench/sw, sw/hw}
+  \draw[->] (\a) -- (\b);
+
+\node[check, right=14mm of fit] (c1) {residual at machine precision};
+\node[check, right=14mm of pv]  (c2) {slope vs finite difference $<10^{-5}$};
+\node[check, right=14mm of avg] (c3) {Jacobian vs finite difference $<10^{-9}$};
+\node[check, right=14mm of ctrl](c4) {phase margin $>\SI{45}{\degree}$ everywhere};
+\node[check, right=14mm of mppt](c5) {limit cycle $=2\Delta V$};
+\node[check, right=14mm of sw]  (c6) {switched vs averaged $<\SI{0.25}{\percent}$};
+
+\foreach \a/\b in {fit/c1, pv/c2, avg/c3, ctrl/c4, mppt/c5, sw/c6}
+  \draw[->, dashed] (\a) -- (\b);
+\end{tikzpicture}
+\caption[Project workflow]{The project workflow. Solid arrows are the modelling chain; dashed boxes are the verification applied at each stage before the next one is allowed to depend on it.}
+\label{fig:workflow}
+\end{figure}
+
+The organising principle is that \textbf{no stage is trusted until it is checked
+against something independent}. The parameter fit is checked against the
+datasheet; the analytic derivatives against finite differences; the averaged
+model against a switched circuit simulation; the simplified design models
+against the full-order plant. This matters because the errors that are dangerous
+in a study like this are not crashes but plausible wrong numbers.
+
+\section{Repository layout}
+
+\begin{table}[htbp]
+\centering
+\caption{Repository structure.}
+\label{tab:repo}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.40\textwidth}>{\raggedright\arraybackslash}p{0.52\textwidth}@{}}
+\toprule
+\textbf{Path} & \textbf{Contents} \\
+\midrule
+\texttt{matlab/+mpptlab/+pv/} & \texttt{PVArray}, \texttt{extractParams}, \texttt{datasheet} \\
+\texttt{matlab/+mpptlab/+conv/} & \texttt{Boost}: averaging, linearisation, envelope \\
+\texttt{matlab/+mpptlab/+ctrl/} & \texttt{designCascade}, \texttt{loopAnalysis}, \texttt{PI}, \texttt{designSingleLoopPI} \\
+\texttt{matlab/+mpptlab/+mppt/} & \texttt{Tracker}, \texttt{PandO}, \texttt{IncCond}, \texttt{ESC} \\
+\texttt{matlab/+mpptlab/+bench/} & \texttt{simulate}, \texttt{irradiance}, \texttt{trackerSet} \\
+\texttt{matlab/+mpptlab/+util/} & configuration, figure style, paths \\
+\texttt{matlab/scripts/} & \texttt{s01} to \texttt{s05} analysis scripts \\
+\texttt{matlab/tests/} & 27 unit tests in three classes \\
+\texttt{matlab/run\_all.m} & runs the whole pipeline \\
+\texttt{simulink/+pvsrc/pv\_module.ssc} & PV array as a Simscape component \\
+\texttt{simulink/build\_mppt\_model.m} & builds the switched model from code \\
+\texttt{simulink/run\_switched\_validation.m} & switched against averaged, closed loop \\
+\texttt{results/figures/}, \texttt{results/data/} & generated outputs \\
+\texttt{docs/report/} & this report \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Design decisions worth justifying}
+
+\subsection{A package namespace rather than loose functions}
+
+All code lives under the \texttt{mpptlab} package. Calls read as
+\texttt{mpptlab.pv.PVArray} and \texttt{mpptlab.ctrl.loopAnalysis}, which makes
+provenance obvious at the call site and prevents name collisions with MATLAB
+functions such as \texttt{simulate} and \texttt{config}.
+
+\subsection{Handle classes for physical objects}
+
+\texttt{PVArray} and \texttt{Boost} are handle classes. A PV array is a physical
+thing with mutable state, its irradiance and temperature, and passing it by
+reference into a simulation loop that updates those properties thousands of
+times per second is both natural and efficient.
+
+\subsection{One configuration function}
+
+Every script obtains its array, converter and gains from
+\texttt{mpptlab.util.config}. There is exactly one place where the module type,
+the array topology, the component values and the crossover frequencies are
+defined. Changing the array from six modules to eight is a one-line edit that
+propagates correctly through every figure and table.
+
+\subsection{A common tracker interface}
+
+All trackers derive from an abstract \texttt{Tracker} class exposing
+\texttt{reset} and \texttt{update}. The base class owns reference clamping and
+update counting; subclasses implement only \texttt{advance}. This guarantees the
+comparison is fair: every tracker sees the same plant, the same inner loops, the
+same sample rate mechanics and the same limits, so measured differences are
+attributable to the algorithm and nothing else.
+
+\subsection{The Simulink model is generated by a script}
+
+\texttt{build\_mppt\_model.m} constructs the model block by block and wires it
+programmatically. A \texttt{.slx} file is a binary archive: it cannot be
+meaningfully diffed, reviewed or merged. A builder script can. The model is
+therefore reproducible from source, and a change to a component value or a
+control gain appears in version control as a readable one-line change.
+
+\section{Numerical methods}
+
+\subsection{Solving the diode equation quickly}
+
+The implicit diode equation must be solved several times per integration step.
+Three measures make the closed-loop simulations tractable: warm starting from
+the previous solution, which cuts Newton to two or three iterations; clamping
+the exponent argument to avoid overflow during transients; and a backtracking
+line search that guarantees the residual magnitude never grows.
+
+\subsection{Integration}
+
+The averaged plant is integrated with fixed-step fourth-order Runge--Kutta at
+half the switching period, \SI{25}{\micro\second}, with the discrete controllers
+updating every \SI{50}{\micro\second}. A step-size convergence test is part of
+the test suite: halving the step changes the final voltage by under
+\SI{0.5}{\volt}, confirming the result is not an artefact of the integrator.
+
+\subsection{Scoring}
+
+The available power used in the efficiency denominator comes from the exact MPP
+solver evaluated on an irradiance grid and interpolated, as described in
+Chapter~\ref{ch:benchmark}.
+
+\section{Verification}
+
+\subsection{The test suite}
+
+Twenty-seven tests run in three classes.
+
+\begin{table}[htbp]
+\centering
+\caption{Test coverage.}
+\label{tab:tests}
+\begin{tabular}{@{}p{0.30\textwidth}rp{0.48\textwidth}@{}}
+\toprule
+\textbf{Class} & \textbf{Tests} & \textbf{What is checked} \\
+\midrule
+\texttt{tPVModel} & 11 & datasheet reproduction, short and open circuit conditions, MPP stationarity, residual on the whole curve, analytic slope against finite difference, monotonicity, irradiance and temperature trends, array scaling, $r_d = \Vmp/\Imp$ at the MPP, zero-irradiance robustness \\
+\texttt{tConverterAndControl} & 9 & operating point is an equilibrium, Jacobian against finite differences, power gain vanishes at the MPP and changes sign across it, modal formulas against eigenvalues, sign of the duty-to-voltage gain, cascade margins above \SI{45}{\degree} over the envelope, single-loop margin below \SI{10}{\degree}, continuous conduction mode \\
+\texttt{tMPPTAndBench} & 7 & profile shapes and slopes, closed-loop reference holding against the analytic I--V curve, limit cycle equals twice the step, all trackers converge to the MPP, efficiency bounded by one, integrator step convergence \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Several of these are not routine. The test that the cascade holds above
+\SI{45}{\degree} while the single-loop design falls below \SI{10}{\degree}
+encodes the central engineering conclusion of the project as an executable
+assertion, so a future change that quietly destroys the argument fails a test.
+Likewise the test that the duty-to-power gain vanishes at the MPP pins the
+theoretical result of Section~\ref{sec:vanishing}.
+
+\subsection{Reproducing everything}
+
+\begin{table}[htbp]
+\centering
+\caption{Result of the full end-to-end run.}
+\label{tab:runall}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Stage} & \textbf{Status} & \textbf{Time (\si{\second})} \\
+\midrule
+s01 PV characterisation   & OK   & 14.5 \\
+s02 plant analysis        & OK   & 5.8 \\
+s03 control design        & OK   & 9.0 \\
+s04 MPPT comparison       & OK   & 39.9 \\
+s05 dynamic benchmark     & OK   & 356.4 \\
+s06 switched validation   & OK   & 156.9 \\
+s07 model diagram export  & OK   & 6.3 \\
+Unit tests                & 27 / 27 passed & 42.0 \\
+\midrule
+\textbf{Total}            &      & \textbf{630.8} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The command \texttt{run\_all} executes the entire pipeline, regenerates every
+figure and table in this report, rebuilds the Simulink model from its builder
+script, and runs the test suite. Table~\ref{tab:runall} is the result of that
+run on the development machine. Every number quoted anywhere in this report
+comes from that pipeline; none were transcribed by hand from an earlier
+experiment.

@@ -1,0 +1,265 @@
+\chapter{Maximum Power Point Tracking Algorithms}
+\label{ch:mppt}
+
+\section{All three algorithms are gradient estimators}
+
+Section~\ref{sec:vanishing} established that the plant gain from control input
+to power vanishes at the optimum, so no fixed linear controller can regulate to
+it. What is needed instead is an estimate of the \emph{sign}, and ideally the
+magnitude, of $\mathrm{d}P/\mathrm{d}V$. The three algorithms implemented here
+differ only in how they obtain that estimate.
+
+\begin{table}[htbp]
+\centering
+\caption{The three trackers viewed as gradient estimators.}
+\label{tab:estimators}
+\begin{tabular}{@{}p{0.22\textwidth}p{0.40\textwidth}p{0.28\textwidth}@{}}
+\toprule
+\textbf{Algorithm} & \textbf{How it estimates the gradient} & \textbf{Cost} \\
+\midrule
+Perturb and observe & Sign of $\Delta P$ between successive deliberate perturbations & Permanent limit cycle of $2\times$ the step \\
+Incremental conductance & Direct evaluation of $\mathrm{d}I/\mathrm{d}V + I/V$ from successive samples & Same limit cycle, plus sensitivity to noise in a ratio \\
+Extremum seeking & Demodulation of the response to a sinusoidal dither & Permanent dither of amplitude $A$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Every one of them pays a permanent steady-state cost, because every one of them
+must keep exciting the plant to keep learning the gradient. That trade is
+unavoidable and is quantified in Section~\ref{sec:tradeoff}.
+
+\section{Perturb and observe}
+
+\subsection{Principle}
+
+The \term{perturb and observe} (P\&O) algorithm holds a direction $s \in \{+1,
+-1\}$ and a fixed step $\Delta V$. Every sample period it moves the voltage
+reference by $s\,\Delta V$, measures the resulting power, and reverses direction
+if the power fell:
+
+\begin{equation}
+s_{k} = \begin{cases} -s_{k-1}, & P_k < P_{k-1} \\ \phantom{-}s_{k-1}, & \text{otherwise}\end{cases}
+\qquad
+V^\ast_{k+1} = V^\ast_k + s_k \Delta V .
+\end{equation}
+
+\subsection{The limit cycle}
+
+At convergence the algorithm cannot stop; it has no way to know it has arrived.
+It oscillates between three reference values, giving a steady-state limit cycle
+of peak-to-peak amplitude exactly $2\Delta V$. Simulation confirms this
+precisely: measured peak-to-peak values were \SI{1.00}{\volt},
+\SI{1.99}{\volt}, \SI{2.99}{\volt}, \SI{3.98}{\volt}, \SI{5.96}{\volt},
+\SI{7.98}{\volt} and \SI{11.95}{\volt} for steps of \SI{0.5}{\volt} to
+\SI{6}{\volt}. This exactness is a useful validation that the voltage loop is
+tracking the reference faithfully.
+
+\subsection{The sampling constraint}
+
+P\&O attributes the observed power change entirely to its own perturbation. Two
+conditions must hold for that attribution to be valid:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item The voltage loop must have settled, or the measurement captures a
+        transient. Chapter~\ref{ch:control} measured \SI{11.9}{\milli\second}
+        settling, hence the \SI{20}{\milli\second} sample period.
+  \item The irradiance must not have changed appreciably during the sample
+        period. When it does, the attribution fails, which is the drift problem
+        of Section~\ref{sec:drift}.
+\end{enumerate}
+
+\section{Incremental conductance}
+
+\subsection{Principle}
+
+\term{Incremental conductance} (INC)~\cite{hussein} rewrites the optimality
+condition. Since $\mathrm{d}P/\mathrm{d}V = I + V\,\mathrm{d}I/\mathrm{d}V$,
+setting it to zero gives
+
+\begin{equation}
+\frac{\mathrm{d}I}{\mathrm{d}V} = -\frac{I}{V},
+\end{equation}
+
+that is, the \emph{incremental} conductance equals the negative of the
+\emph{instantaneous} conductance. The algorithm approximates the derivative by
+$\Delta I / \Delta V$ from consecutive samples and moves the reference according
+to the sign of the residual
+
+\begin{equation}
+r = \frac{\Delta I}{\Delta V} + \frac{I}{V} = \frac{1}{V}\frac{\mathrm{d}P}{\mathrm{d}V} .
+\end{equation}
+
+Because $V > 0$ always, $\mathrm{sign}(r) = \mathrm{sign}(\mathrm{d}P/\mathrm{d}V)$,
+so the update rule is to increase the reference when $r > 0$ and decrease it
+when $r < 0$. A tolerance band around zero is used to avoid chattering on noise.
+
+\subsection{The case $\Delta V = 0$}
+
+If the voltage has not changed between samples, the ratio is undefined. The
+standard treatment, implemented here, examines $\Delta I$ instead: a positive
+$\Delta I$ at constant voltage means the irradiance has risen, so the maximum
+power point has moved to slightly higher voltage and the reference should
+increase.
+
+\subsection{Relationship to P\&O}
+
+INC is often presented as fundamentally superior to P\&O. In the results of this
+project the two are essentially identical under constant and slowly varying
+irradiance, both reaching \SI{99.95}{\percent} at \SI{25}{\watt\per\square\metre\per\second},
+and both showing the same $2\Delta V$ limit cycle. This should not be
+surprising: with the same fixed step and the same sample period they are two
+ways of computing the sign of the same quantity. INC's theoretical advantage,
+that it evaluates a condition rather than differencing power, only materialises
+when the two differ, which is under fast transients and in the presence of
+measurement noise.
+
+\section{Extremum seeking control}
+
+\subsection{Structure}
+
+The \term{extremum seeking} (ESC) tracker adds a sinusoidal dither to the
+reference and extracts the gradient by correlation:
+
+\begin{align}
+V^\ast(t) &= \hat V(t) + A\sin(\omega t), \\
+\xi(t) &= P(t) - \overline{P}(t) \quad\text{(washout high-pass)}, \\
+\hat\gamma(t) &= \mathrm{LPF}\big[\xi(t)\sin(\omega t)\big] \;\approx\; \tfrac{A}{2}\frac{\mathrm{d}P}{\mathrm{d}V}, \\
+\dot{\hat V}(t) &= K\,\hat\gamma(t) .
+\end{align}
+
+The washout filter removes the large DC component of power so that the
+demodulator sees only the dither-induced variation. The low-pass filter after
+demodulation removes the second-harmonic term. The integrator then performs
+gradient ascent on the estimate.
+
+\subsection{Parameter selection}
+
+The dither frequency must satisfy competing constraints. It must be low enough
+that the voltage control loop can actually follow the dither, so well below the
+outer loop bandwidth of \SI{155}{\hertz} to \SI{223}{\hertz}. It must be high
+enough that the dither is separable from genuine irradiance variation.
+\SI{25}{\hertz} satisfies both. The washout and low-pass corners were set at
+\SI{5}{\hertz}, a factor of five below the dither, and the amplitude at
+\SI{3}{\volt}.
+
+The adaptation gain $K$ was chosen by sweep, shown in Table~\ref{tab:escgain}.
+The behaviour is exactly what averaging theory predicts: performance improves
+with gain up to a point, then the estimator loop itself becomes unstable and the
+steady-state excursion grows abruptly.
+
+\begin{table}[htbp]
+\centering
+\caption{Extremum seeking gain sweep at \SI{1000}{\watt\per\square\metre}, starting from \SI{120}{\volt}. The true $\Vmp$ is \SI{157.80}{\volt}.}
+\label{tab:escgain}
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+Gain $K$ & Static $\eta$ (\si{\percent}) & Estimate $\hat V$ (\si{\volt}) & Excursion (\si{\volt}) \\
+\midrule
+5   & 98.51 & 157.75 & 5.46 \\
+20  & \textbf{99.21} & 157.75 & 5.51 \\
+50  & 99.07 & 157.76 & 5.64 \\
+100 & 98.62 & 157.79 & 5.89 \\
+200 & 97.34 & 156.55 & 27.02 \\
+400 & 97.67 & 161.31 & 27.06 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+$K = 20$ was adopted. Note that the internal estimate $\hat V$ converges to
+\SI{157.75}{\volt} against a true value of \SI{157.80}{\volt}, an error of
+\SI{0.03}{\percent}. ESC is the most \emph{accurate} of the three trackers; its
+efficiency penalty comes entirely from the deliberate dither, not from bias.
+
+\section{The fundamental trade-off}
+\label{sec:tradeoff}
+
+Every hill-climbing tracker faces the same trade: a larger perturbation acquires
+the peak faster but oscillates further from it in steady state. This was
+quantified by sweeping the P\&O step from \SI{0.5}{\volt} to \SI{6}{\volt},
+measuring acquisition time from a \SI{120}{\volt} start and steady-state
+efficiency separately, so that the two effects do not contaminate each other.
+
+\begin{table}[htbp]
+\centering
+\caption{The P\&O speed against accuracy frontier at \SI{1000}{\watt\per\square\metre}.}
+\label{tab:tradeoff}
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+Step (\si{\volt}) & Steady $\eta$ (\si{\percent}) & Limit cycle (\si{\volt}) & Acquisition (\si{\second}) \\
+\midrule
+0.5 & 99.9947 & 1.00  & 1.481 \\
+1.0 & 99.9838 & 1.99  & 0.721 \\
+1.5 & 99.9645 & 2.99  & 0.462 \\
+2.0 & 99.9386 & 3.98  & 0.341 \\
+3.0 & 99.7995 & 5.96  & 0.221 \\
+4.0 & 99.6920 & 7.98  & 0.144 \\
+6.0 & 99.4125 & 11.95 & 0.082 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The relationship is cleanly monotone in both directions: an eighteen-fold
+reduction in acquisition time costs \SI{0.58}{\percent} of steady-state
+efficiency. A step of \SI{1.5}{\volt}, roughly \SI{1}{\percent} of $\Vmp$, was
+adopted as a reasonable compromise and used for all comparisons.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{s04_mppt_comparison.png}
+\caption[MPPT algorithm comparison]{Algorithm comparison through a \SI{1000}{} to \SI{500}{\watt\per\square\metre} irradiance step. Top left, voltage tracking; top right, power recovery; bottom left, steady-state behaviour showing the limit cycles and the extremum seeking dither; bottom right, the P\&O speed against accuracy frontier with each point labelled by its step size.}
+\label{fig:mpptcompare}
+\end{figure}
+
+\section{Comparison under a step change}
+
+Table~\ref{tab:stepcompare} compares all four tracker configurations through an
+instantaneous irradiance step, the classic test.
+
+\begin{table}[htbp]
+\centering
+\caption{Performance through a \SI{1000}{} to \SI{500}{\watt\per\square\metre} step.}
+\label{tab:stepcompare}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Tracker & $\eta$ (\si{\percent}) & RMS error (\si{\volt}) & Ripple (\si{\volt}) & Worst deficit (\si{\watt}) \\
+\midrule
+P\&O, fixed step        & 99.944 & 1.56 & 3.00 & 182.7 \\
+P\&O, variable step     & \textbf{99.956} & 1.39 & \textbf{0.50} & \textbf{154.6} \\
+Incremental conductance & 99.944 & 1.56 & 3.00 & 182.7 \\
+Extremum seeking        & 99.551 & 4.88 & 5.95 & 194.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Under this test the variable-step P\&O looks best: it shrinks its step near the
+peak, achieving a \SI{0.5}{\volt} limit cycle, and enlarges it during the
+transient. Extremum seeking looks worst, penalised by its \SI{6}{\volt}
+peak-to-peak dither.
+
+Chapter~\ref{ch:benchmark} shows that this ranking inverts completely under
+irradiance \emph{ramps}, which is why a step test alone is an inadequate
+benchmark and why the EN 50530 ramp profiles exist.
+
+\section{The drift problem}
+\label{sec:drift}
+
+An instantaneous step is, paradoxically, an easy test for P\&O. The irradiance
+is constant both before and after, so the power change the algorithm observes is
+genuinely caused by its own perturbation except in the single sample that
+straddles the step.
+
+A \emph{ramp} is much harder. Suppose irradiance is rising at
+\SI{100}{\watt\per\square\metre\per\second} and the sample period is
+\SI{20}{\milli\second}. Between samples the irradiance rises by
+\SI{2}{\watt\per\square\metre}, which at full sun adds roughly \SI{5}{\watt} to
+the available power. A \SI{1.5}{\volt} perturbation near the flat peak changes
+power by far less than that. So $\Delta P > 0$ regardless of which way the
+algorithm perturbed, it concludes its last move was correct, and it keeps going
+in that direction. If that direction happens to be wrong, it marches steadily
+away from the peak. This is the well-documented \term{drift} or
+\term{confusion} phenomenon~\cite{femia}.
+
+Whether it occurs depends on the phase of the perturbation when the ramp starts,
+which is why it is intermittent and easy to miss in a single simulation. The
+next chapter observes it directly, and shows that a naive variable-step rule,
+which was the best performer under the step test, makes it dramatically worse.

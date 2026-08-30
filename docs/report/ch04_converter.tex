@@ -1,0 +1,294 @@
+\chapter{The Converter and its Small-Signal Model}
+\label{ch:converter}
+
+\section{Topology and the choice of controlled variable}
+
+The power stage is a boost converter with the array on its input and a stiff
+\SI{400}{\volt} DC bus on its output, drawn in Figure~\ref{fig:boostckt}. The
+bus is treated as stiff because in a real string inverter the downstream
+grid-side stage regulates it; from the point of view of the MPPT converter it is
+a voltage sink.
+
+\begin{figure}[htbp]
+\centering
+\begin{circuitikz}[scale=1.0, transform shape]
+\draw (0,0) to[isource, l_=$\ipv(\vpv)$, invert] (0,3.2);
+\draw (0,3.2) -- (1.6,3.2);
+\draw (1.6,3.2) to[C, l_=$C_{\mathrm{pv}}$] (1.6,0);
+\draw (1.6,3.2) to[L, l=$L$, i>^=$i_L$] (4.2,3.2)
+      to[R, l=$R_L$] (5.8,3.2);
+\draw (5.8,3.2) to[Tnmos, n=mos] (5.8,0.6);
+\draw (5.8,0.6) -- (5.8,0);
+\draw (5.8,3.2) to[D, l=$D$] (8.2,3.2);
+\draw (8.2,3.2) to[C, l_=$C_o$] (8.2,0);
+\draw (8.2,3.2) -- (9.8,3.2) to[battery1, l=$V_{dc}$] (9.8,0);
+\draw (0,0) -- (9.8,0);
+\draw (0,0) node[ground]{};
+\node at (0.55,1.6) {$\vpv$};
+\draw[dashed] (-0.55,-0.5) rectangle (0.9,3.8);
+\node[align=center, font=\small] at (0.2,4.2) {PV array};
+\node[font=\small] at (mos.gate) [left=6pt] {$d$};
+\end{circuitikz}
+\caption[Boost converter power stage]{The boost converter power stage. The array is a nonlinear source characterised by $\ipv(\vpv)$; the duty ratio $d$ of the transistor is the single control input.}
+\label{fig:boostckt}
+\end{figure}
+
+A design decision is embedded here that deserves emphasis. The converter has one
+control input, the duty ratio, and several signals could be regulated with it:
+the output current into the bus, the inductor current, or the PV terminal
+voltage. This project regulates \textbf{PV terminal voltage} as the outer
+objective. Two reasons:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item As Chapter~\ref{ch:pvmodel} showed, $\Vmp$ barely moves with irradiance,
+        so a voltage reference is a naturally well-conditioned target.
+  \item As shown in Section~\ref{sec:nozero}, the transfer function from duty
+        ratio to PV voltage has no right half plane zero, whereas the
+        transfer function from duty ratio to boost \emph{output} voltage
+        famously does. Choosing the input-side variable avoids a fundamental
+        bandwidth limitation.
+\end{enumerate}
+
+\section{Averaged model}
+
+\subsection{Deriving the state equations}
+
+Take as states the PV terminal voltage $\vpv$, which is the voltage on
+$C_{\mathrm{pv}}$, and the inductor current $i_L$. Averaging the two switch
+configurations over one switching period, weighted by $d$ and $1-d$, gives
+
+\begin{align}
+C_{\mathrm{pv}}\,\frac{\mathrm{d}\vpv}{\mathrm{d}t} &= \ipv(\vpv) - i_L \label{eq:av1}\\
+L\,\frac{\mathrm{d}i_L}{\mathrm{d}t} &= \vpv - (1-d)\,V_{dc} - i_L R_L \label{eq:av2}
+\end{align}
+
+Equation~\eqref{eq:av1} is charge balance on the input capacitor: whatever the
+array supplies and the inductor does not take, charges $C_{\mathrm{pv}}$.
+Equation~\eqref{eq:av2} is the inductor voltage: the array voltage drives it
+forward, the reflected bus voltage $(1-d)V_{dc}$ opposes it, and the winding
+resistance dissipates.
+
+The nonlinearity sits entirely in $\ipv(\vpv)$, the array characteristic.
+
+\subsection{Steady state}
+
+Setting the derivatives to zero gives $i_L = \ipv(\vpv)$, which simply says the
+converter draws exactly what the array produces, and
+
+\begin{equation}
+D = 1 - \frac{\vpv - i_L R_L}{V_{dc}},
+\label{eq:dutyexact}
+\end{equation}
+
+which is the ideal ratio~\eqref{eq:boostratio} corrected for the inductor
+resistance drop.
+
+\section{Linearisation}
+
+\subsection{The state matrices}
+
+Perturbing about an operating point $(V, I, D)$ and writing
+$g = \mathrm{d}I/\mathrm{d}V$ for the array slope there,
+
+\begin{equation}
+A = \begin{bmatrix}
+\dfrac{g}{C_{\mathrm{pv}}} & -\dfrac{1}{C_{\mathrm{pv}}}\\[2ex]
+\dfrac{1}{L} & -\dfrac{R_L}{L}
+\end{bmatrix},
+\qquad
+B = \begin{bmatrix} 0 \\[1ex] \dfrac{V_{dc}}{L}\end{bmatrix} .
+\label{eq:AB}
+\end{equation}
+
+Three outputs are of interest, PV voltage, inductor current, and PV power:
+
+\begin{equation}
+C = \begin{bmatrix}
+1 & 0\\
+0 & 1\\
+I + Vg & 0
+\end{bmatrix} .
+\label{eq:C}
+\end{equation}
+
+The third row deserves attention: the linearised gain from a state perturbation
+to power is $I + Vg$, which by~\eqref{eq:dpdv} is exactly
+$\mathrm{d}P/\mathrm{d}V$. Section~\ref{sec:vanishing} draws out the
+consequence.
+
+\subsection{Verification}
+
+The matrices in~\eqref{eq:AB} were checked against a central-difference Jacobian
+of the nonlinear right-hand side~\eqref{eq:av1}--\eqref{eq:av2}. At
+\SI{700}{\watt\per\square\metre} and \SI{40}{\celsius} the relative discrepancy
+is \num{7.4e-11} for $A$ and \num{3.9e-10} for $B$, and the residual at the
+computed operating point is \SI{1.1e-11}{}. This check is part of the automated
+test suite, so a future edit that breaks the analytic derivative fails a test
+rather than silently corrupting every downstream result.
+
+\section{The duty-to-voltage transfer function}
+\label{sec:nozero}
+
+Evaluating $G_{vd}(s) = C_1 (sI - A)^{-1} B$ gives
+
+\begin{equation}
+G_{vd}(s) = \frac{\vpv(s)}{d(s)}
+= \frac{-\,\dfrac{V_{dc}}{L C_{\mathrm{pv}}}}
+       {s^2 + \left(\dfrac{R_L}{L} - \dfrac{g}{C_{\mathrm{pv}}}\right)s
+        + \dfrac{1 - g R_L}{L C_{\mathrm{pv}}}} .
+\label{eq:Gvd}
+\end{equation}
+
+Several things can be read straight off this expression.
+
+\subsection{No right half plane zero}
+
+The numerator is a constant. There is no zero at all, let alone one in the right
+half plane. This is the payoff of regulating the input-side voltage. The
+non-minimum-phase behaviour of the boost converter arises in the duty-to-output
+voltage path, where increasing duty momentarily \emph{reduces} output current
+before the inductor current has time to build; that mechanism does not appear on
+the input side.
+
+\subsection{Sign of the gain}
+
+The DC gain is $-V_{dc}/(1 - g R_L)$, which is negative because $g < 0$. Raising
+the duty ratio lowers the PV voltage, as physical reasoning predicted. The
+controller must therefore act on the error $\vpv - V^\ast$ rather than
+$V^\ast - \vpv$, or equivalently carry a sign inversion.
+
+\subsection{Natural frequency and damping}
+
+Comparing~\eqref{eq:Gvd} with the standard second-order form,
+
+\begin{align}
+\omega_n &= \sqrt{\frac{1 - g R_L}{L C_{\mathrm{pv}}}} \;\approx\; \frac{1}{\sqrt{L C_{\mathrm{pv}}}}, \label{eq:wn}\\
+2\zeta\omega_n &= \frac{R_L}{L} - \frac{g}{C_{\mathrm{pv}}} = \frac{R_L}{L} + \frac{1}{r_d C_{\mathrm{pv}}}. \label{eq:zeta}
+\end{align}
+
+This is the key structural result of the chapter. The natural frequency is set
+by the passive components and barely depends on operating point. The damping,
+however, contains the term $1/(r_d C_{\mathrm{pv}})$, so it is inversely
+proportional to the array's dynamic resistance. Since $r_d$ varies by more than
+two orders of magnitude along the I--V curve, so does the damping.
+
+Physically, the array is acting as the damping element of the LC circuit. On the
+voltage-source branch it is a low resistance and damps the resonance heavily; on
+the current-source branch it is nearly an open circuit and leaves the LC
+essentially undamped, with only the small winding resistance $R_L$ to dissipate.
+
+\section{The operating envelope}
+\label{sec:sizing}
+
+\subsection{Component sizing}
+
+Sizing followed from a \SI{20}{\percent} inductor current ripple target at the
+STC maximum power point. From~\eqref{eq:iripple} with $\Vmp = \SI{157.8}{\volt}$,
+$D = \num{0.6055}$ and $\Delta i_L = \SI{3.04}{\ampere}$, the required inductance
+is \SI{1.57}{\milli\henry}, rounded to \SI{1.5}{\milli\henry}. The input
+capacitor was then chosen for a PV voltage ripple below \SI{0.25}{\volt} using
+$\Delta \vpv = \Delta i_L / (8 f_{sw} C_{\mathrm{pv}})$, giving
+\SI{76}{\micro\farad}, rounded up to \SI{100}{\micro\farad}. The resulting LC
+corner is \SI{411}{\hertz}, comfortably below $f_{sw}/10 = \SI{2}{\kilo\hertz}$
+as averaging requires.
+
+\subsection{Envelope in irradiance}
+
+Table~\ref{tab:envG} sweeps irradiance with the array held at its maximum power
+point. The last column confirms that the converter stays in continuous
+conduction mode down to \SI{200}{\watt\per\square\metre}, where the mean current
+is still \num{1.9} times half the ripple.
+
+\begin{table}[htbp]
+\centering
+\caption{Small-signal properties at the maximum power point across irradiance, \SI{25}{\celsius}.}
+\label{tab:envG}
+\begin{tabular}{@{}rrrrrrrr@{}}
+\toprule
+$G$ & $\Vmp$ & $\Imp$ & $D$ & $r_d$ & $f_n$ & $\zeta$ & CCM ratio \\
+(\si{\watt\per\square\metre}) & (\si{\volt}) & (\si{\ampere}) & & (\si{\ohm}) & (\si{\hertz}) & & \\
+\midrule
+200  & 156.02 & 3.06  & 0.611 & 50.97 & 411.5 & 0.0573 & 1.93 \\
+400  & 158.75 & 6.12  & 0.605 & 25.95 & 412.1 & 0.0937 & 3.82 \\
+600  & 159.21 & 9.16  & 0.605 & 17.38 & 412.7 & 0.1303 & 5.70 \\
+800  & 158.75 & 12.20 & 0.608 & 13.02 & 413.3 & 0.1672 & 7.59 \\
+1000 & 157.80 & 15.22 & 0.611 & 10.37 & 413.9 & 0.2047 & 9.47 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Envelope along the I--V curve}
+
+Table~\ref{tab:envV} is the more revealing sweep. Holding irradiance at
+\SI{1000}{\watt\per\square\metre} and moving the operating point along the
+curve, the resonant frequency changes by under \SI{4}{\percent} while the
+damping ratio changes by a factor of \num{44}.
+
+\begin{table}[htbp]
+\centering
+\caption{Small-signal properties along the I--V curve at \SI{1000}{\watt\per\square\metre}. The resonance is essentially fixed; the damping is not.}
+\label{tab:envV}
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+$V$ (\si{\volt}) & $V/\Voc$ & $r_d$ (\si{\ohm}) & $f_n$ (\si{\hertz}) & $\zeta$ & $\mathrm{d}P/\mathrm{d}V$ (\si{\watt\per\volt}) \\
+\midrule
+69.09  & 0.35 & 482.1 & 411.0 & 0.0234 & $+16.13$ \\
+108.57 & 0.55 & 417.6 & 411.0 & 0.0240 & $+15.93$ \\
+138.18 & 0.70 & 77.23 & 411.3 & 0.0444 & $+14.25$ \\
+157.80 & 0.799 & 10.37 & 413.9 & 0.2047 & $\approx 0$ \\
+173.71 & 0.88 & 3.077 & 420.8 & 0.6335 & $-44.40$ \\
+187.53 & 0.95 & 1.832 & 427.4 & 1.0350 & $-96.41$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{s02_plant_frequency_response.png}
+\caption[Small-signal plant frequency response]{Small-signal behaviour of the plant. Top left and top right, magnitude and phase of duty to PV voltage at six points along the I--V curve: the resonance peak grows dramatically as the operating point moves onto the current-source branch. Bottom left, duty to inductor current is almost invariant, which is what makes the inner loop easy. Bottom right, the DC gain from duty to PV power passes through zero exactly at the maximum power point and changes sign.}
+\label{fig:plantbode}
+\end{figure}
+
+Figure~\ref{fig:plantbode} shows the same information as frequency responses.
+The resonance peak of $G_{vd}$ reaches roughly \SI{27}{\decibel} above its low
+frequency value on the current-source branch, and essentially disappears near
+$\Voc$.
+
+\section{Why power cannot be the feedback variable}
+\label{sec:vanishing}
+
+The bottom-right panel of Figure~\ref{fig:plantbode} makes concrete a point that
+is easy to state and easy to overlook. Combining the third row of~\eqref{eq:C}
+with~\eqref{eq:Gvd}, the DC gain from duty ratio to PV power is
+
+\begin{equation}
+\left.\frac{\partial P}{\partial d}\right|_{DC}
+= \frac{\mathrm{d}P}{\mathrm{d}V}\cdot \frac{-V_{dc}}{1 - g R_L} .
+\label{eq:powergain}
+\end{equation}
+
+At the maximum power point $\mathrm{d}P/\mathrm{d}V = 0$ by definition, so
+\emph{the plant gain from the control input to the power output is exactly
+zero there}, and it changes sign as the operating point crosses the peak. The
+numerically computed value at the MPP is \SI{8.9e-15}{\watt}, that is, zero to
+round-off.
+
+Two consequences follow directly:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Power cannot be used as a conventional feedback error.} A linear
+        controller closing a loop on power would have infinite required gain
+        exactly where it needs to work, and would have the wrong sign on one
+        side of the peak. No fixed linear controller can regulate to an
+        extremum.
+  \item \textbf{MPPT must be a fundamentally different kind of layer.} It must
+        estimate the \emph{gradient} rather than regulate the value. Perturb and
+        observe does this by finite differencing; incremental conductance by
+        evaluating the analytic condition; extremum seeking by dither
+        demodulation. Chapter~\ref{ch:mppt} treats all three as gradient
+        estimators, which is what they are.
+\end{enumerate}
+
+This is the sense in which the project title is more than a framing device. The
+control-theoretic view explains \emph{why} MPPT algorithms have the form they
+do, rather than presenting them as a catalogue of heuristics.

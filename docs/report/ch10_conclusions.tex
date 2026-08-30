@@ -1,0 +1,151 @@
+\chapter{Conclusions}
+\label{ch:conclusions}
+
+\section{What was required and what was delivered}
+
+The project asked for feedback control to hold a photovoltaic array near maximum
+power under changing irradiance, with a MATLAB photovoltaic model, an MPPT
+model and a control analysis, and a physical model containing the panel and the
+DC--DC converter. Table~\ref{tab:delivered} records what was produced against
+each of those.
+
+\begin{table}[htbp]
+\centering
+\caption{Requirements against deliverables.}
+\label{tab:delivered}
+\begin{tabular}{@{}p{0.26\textwidth}p{0.50\textwidth}p{0.16\textwidth}@{}}
+\toprule
+\textbf{Required} & \textbf{Delivered} & \textbf{Evidence} \\
+\midrule
+Photovoltaic model & Five-parameter single-diode model with De Soto translation; parameters identified from five simultaneous datasheet constraints; analytic derivatives; exact maximum power point solver & Ch.~\ref{ch:pvmodel}, Tables~\ref{tab:pvfit},~\ref{tab:pvvalid} \\
+MPPT model & Perturb and observe in fixed and variable step form, incremental conductance and extremum seeking, behind a common discrete-time interface & Ch.~\ref{ch:mppt} \\
+Control analysis & Averaged converter model, analytic linearisation verified against finite differences, operating envelope sweeps, cascaded design with margins across the envelope and a single-loop baseline for comparison & Ch.~\ref{ch:converter},~\ref{ch:control} \\
+Physical model, panel & Custom Simscape component solving the implicit diode equation natively & Ch.~\ref{ch:physical} \\
+Physical model, DC--DC & Switched boost converter with real transistor, diode, inductor and capacitors at \SI{20}{\kilo\hertz}, with digital pulse width modulation and computation delay & Ch.~\ref{ch:physical}, Fig.~\ref{fig:slxmodel} \\
+Beyond the brief & EN 50530-style dynamic benchmark, 27 automated tests, scripted reproducible pipeline, hardware specification and staged build plan & Ch.~\ref{ch:benchmark},~\ref{ch:software},~\ref{ch:physical} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Principal findings}
+
+\subsection{The plant is an operating-point-dependent resonance}
+
+The dynamic resistance of the array appears directly in the damping term of the
+converter's characteristic polynomial, equation~\eqref{eq:zeta}. Along the I--V
+curve at fixed irradiance the resonant frequency moves by under
+\SI{4}{\percent} while the damping ratio changes by a factor of \num{44}, from
+\num{0.023} to \num{1.035}. The array is, in effect, the damping element of its
+own converter, and it stops damping precisely when it is behaving as a current
+source.
+
+\subsection{Regulating the input-side voltage avoids the right half plane zero}
+
+The transfer function from duty ratio to photovoltaic voltage,
+equation~\eqref{eq:Gvd}, has a constant numerator. The non-minimum-phase
+behaviour that limits boost converter bandwidth appears only in the
+duty-to-output path. Choosing the input-side variable as the controlled output
+removes a fundamental bandwidth limitation at no cost.
+
+\subsection{A single proportional--integral loop is structurally inadequate}
+
+Against a resonance peak of \SI{43}{\decibel}, a conventionally designed
+single-loop controller produces three gain crossovers and its worst-case phase
+margin falls to \SI{1.5}{\degree}. The cascade holds above \SI{85}{\degree}
+everywhere, because at the inner crossover the plant reduces to $V_{dc}/(Ls)$
+independently of operating point. The improvement is structural, not a matter of
+retuning.
+
+\subsection{The loop gain on power vanishes at the optimum}
+
+The linearised gain from duty ratio to photovoltaic power equals
+$\mathrm{d}P/\mathrm{d}V$, which is zero at the maximum power point and changes
+sign across it. No fixed linear controller can regulate to an extremum. This is
+why the MPPT layer must estimate a gradient rather than regulate a value, and it
+explains the form of every algorithm in Chapter~\ref{ch:mppt} from first
+principles.
+
+\subsection{Timescale separation is a derived design rule}
+
+The measured voltage loop settling time of \SI{11.9}{\milli\second} sets the
+minimum MPPT sample period. The \SI{20}{\milli\second} used throughout was
+derived from that measurement rather than assumed, and the whole three-layer
+hierarchy follows from the same reasoning.
+
+\subsection{Extremum seeking is rate-independent, hill climbing is not}
+
+On trapezoidal ramps, extremum seeking held \SI{99.85}{\percent} at every ramp
+rate from \SI{25}{} to \SI{200}{\watt\per\square\metre\per\second}, with a worst
+instantaneous shortfall of \SI{8}{\watt}. Perturb and observe and incremental
+conductance degraded to \SI{99.46}{\percent} with shortfalls above
+\SI{116}{\watt}. The advantage is frequency separation between the probe dither
+and the disturbance, and it is paid for by a permanent dither loss that makes
+extremum seeking the worst performer under constant irradiance.
+
+\subsection{An adaptive rule can introduce a new instability}
+
+The variable-step perturb and observe tracker was the best performer on the step
+test and the worst on the ramp test, collapsing to \SI{93.1}{\percent} with a
+\SI{705}{\watt} shortfall. Its step size grows with $|\mathrm{d}P/\mathrm{d}V|$,
+so once the drift phenomenon points it the wrong way, moving away from the peak
+increases the gradient, which increases the step, which moves it further. The
+adaptation loop has positive feedback and needs the same stability scrutiny as
+the main control loop.
+
+\subsection{The averaged model is trustworthy}
+
+The switched circuit agrees with the averaged model to \SI{0.23}{\percent} in
+mean voltage, \SI{0.15}{\percent} in mean current, \SI{1.2}{\percent} in ripple
+and \SI{0.005}{\percent} in mean power. Every analytical conclusion in the report
+inherits its credibility from this check.
+
+\section{Limitations}
+
+The limitations of the physical model were listed in Chapter~\ref{ch:physical}.
+At the level of the study as a whole, three are worth restating. Uniform
+illumination is assumed throughout, so partial shading and the multiple local
+maxima it creates are outside scope. No sensor noise, quantisation or offset is
+modelled, which flatters both hill-climbing algorithms and removes the main
+practical distinction between them. And no hardware was built, so every result
+is a simulation result, validated against a more detailed simulation rather than
+against measurement.
+
+\section{Future work}
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{A drift-free perturb and observe variant.} Add an irradiance
+        change detector that suppresses the direction reversal when a large
+        power change is accompanied by a small voltage change. This directly
+        addresses the failure of Section~\ref{sec:drift} and is the single most
+        valuable extension.
+  \item \textbf{Sensor models.} Add quantisation, noise and offset, which should
+        reveal the practical difference between perturb and observe and
+        incremental conductance that the idealised study could not.
+  \item \textbf{Gain scheduling on dynamic resistance.} The outer loop bandwidth
+        varies from \SI{15}{} to \SI{223}{\hertz}. Scheduling the outer
+        proportional gain on $r_d$, which the tracker already measures from its
+        own perturbations, would equalise it.
+  \item \textbf{Ripple correlation control.} Use the converter's own
+        \SI{20}{\kilo\hertz} switching ripple as the dither, giving extremum
+        seeking behaviour with no added excitation and therefore no dither loss.
+        This requires the switched model and is a natural use of the physical
+        model already built.
+  \item \textbf{Partial shading and global search.} Extend the array model to
+        per-module irradiance with bypass diodes, and add a global scan layer
+        above the local tracker.
+  \item \textbf{Hardware realisation.} Execute the staged plan of
+        Table~\ref{tab:buildplan}, using the simulated figures as quantitative
+        acceptance criteria.
+\end{enumerate}
+
+\section{Closing remark}
+
+The value of framing maximum power point tracking as a control problem is that
+the framing is predictive rather than decorative. The vanishing loop gain at the
+optimum explains why tracking algorithms must estimate gradients. The dynamic
+resistance explains why a naive single loop is fragile and where it is fragile.
+The measured settling time sets the tracker sample period. The frequency
+separation between dither and disturbance explains why extremum seeking is
+immune to ramps. In each case a control-theoretic quantity accounts for
+behaviour that would otherwise have to be discovered empirically and accepted
+without explanation.

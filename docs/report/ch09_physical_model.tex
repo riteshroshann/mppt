@@ -1,0 +1,315 @@
+\chapter{Physical Model and Hardware}
+\label{ch:physical}
+
+\section{Purpose of the physical model}
+
+Everything in Chapters~\ref{ch:converter} to~\ref{ch:benchmark} rests on the
+averaged model~\eqref{eq:av1}--\eqref{eq:av2}, which replaces a transistor
+switching \num{20000} times a second with a continuous duty ratio. That
+replacement is an approximation, and an approximation that has not been checked
+is an assumption.
+
+The physical model exists to check it, and to be the bridge to hardware. It
+contains a real circuit: a transistor that is either on or off, a diode that
+conducts in one direction, an inductor with resistance, capacitors that charge
+and discharge every switching period, and a photovoltaic array that is a genuine
+two-terminal electrical device rather than a formula.
+
+\section{The photovoltaic array as a Simscape component}
+
+\subsection{Why not a controlled current source}
+
+The obvious way to model a panel in Simulink is a controlled current source
+driven by a block that computes $\ipv$ from the sensed $\vpv$. That was the
+first approach tried here, and it fails: Simulink reports an algebraic loop.
+
+The reason is instructive. The sensed voltage feeds a block with direct
+feedthrough, which drives a current source in the same electrical network the
+voltage was sensed from. Simulink cannot see that $\vpv$ is a capacitor state
+and therefore not instantaneously dependent on the injected current, so it
+conservatively declares a loop. Breaking it requires inserting an artificial
+delay or filter, which introduces an error that has nothing to do with the
+physics.
+
+\subsection{The component actually used}
+
+The correct solution is to make the array a native Simscape component so the
+implicit diode equation becomes part of the differential-algebraic system the
+Simscape solver already solves. A component was written in the Simscape language
+declaring two electrical nodes, two physical signal inputs for irradiance and
+cell temperature, the nine reference parameters, and the constitutive equations:
+
+\begin{verbatim}
+branches
+    i : n.i -> p.i;
+end
+
+equations
+    v == p.v - n.v;
+    i == Iph - I0*(exp(vd/aa) - 1) - vd/Rsh;
+end
+\end{verbatim}
+
+with the De Soto translation~\eqref{eq:tr_a}--\eqref{eq:tr_r} computed in a
+\texttt{let} block from the inputs. The branch is declared from the negative to
+the positive node so that a positive current is one delivered to the external
+circuit, matching the sign convention used throughout the report.
+
+The benefits are substantial. There is no algebraic loop, because the solver
+handles the implicit equation natively. There is no Newton iteration written by
+hand inside a Simulink block. The units are checked at compile time. And the
+component is a reusable library block: it appears in a generated library and can
+be dropped into any Simscape circuit.
+
+\section{The switched model}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{s07_simulink_model.png}
+\caption[Simulink switched model]{The switched Simulink and Simscape model. Left, the photovoltaic array component driven by irradiance and cell temperature. Centre, the boost power stage with current and voltage sensing. Bottom, the discrete cascaded controller, the one-sample computation delay, the sawtooth carrier and the pulse width modulation comparator.}
+\label{fig:slxmodel}
+\end{figure}
+
+\subsection{Power stage}
+
+The circuit of Figure~\ref{fig:boostckt} is built from Simscape Foundation
+Library electrical blocks: capacitors, an inductor, a resistor for the winding
+loss, an ideal switch as the transistor, a diode, a DC voltage source for the
+bus, and current and voltage sensors. Notably, no Simscape Electrical licence is
+required; the Foundation Library and one custom component are sufficient.
+
+\subsection{Pulse width modulation}
+
+The duty ratio produced by the controller is compared against a sawtooth carrier
+running at \SI{20}{\kilo\hertz} that ramps from \num{0} to \num{1} each period.
+The comparison output drives the switch. This is genuine pulse width modulation
+with genuine switching instants, not an averaged approximation.
+
+\subsection{The one-sample computation delay}
+
+The controller is a discrete block running at the switching period. Connecting
+its output directly to the comparator produced a second algebraic loop, because
+the gate state affects the sensed currents instantaneously through the resistive
+path while the controller has direct feedthrough from those currents.
+
+The fix adopted is not a numerical trick but a model refinement: a unit delay
+between the controller output and the comparator. A real digital controller
+samples at the start of a period, computes, and applies the resulting duty ratio
+in the \emph{next} period. That one-sample computation delay is a real property
+of every digital power converter, and including it makes the model more faithful
+rather than less. At \SI{50}{\micro\second} it contributes about
+\SI{36}{\degree} of phase lag at the \SI{2}{\kilo\hertz} inner crossover, which
+is precisely why the \SI{85}{\degree} phase margin designed in
+Chapter~\ref{ch:control} matters: the design has enough headroom to absorb it.
+
+\section{Validation against the averaged model}
+
+\subsection{Open loop at fixed duty}
+
+With the duty ratio held at the analytically predicted \num{0.6112} and no
+feedback at all, the switched circuit was allowed to settle from zero initial
+conditions, and its waveforms were averaged over the final \SI{20}{\percent} of
+the run.
+
+\begin{table}[htbp]
+\centering
+\caption{Switched circuit against the averaged model at fixed duty \num{0.6112}, \SI{1000}{\watt\per\square\metre}, \SI{25}{\celsius}.}
+\label{tab:swvalid}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Quantity} & \textbf{Switched} & \textbf{Averaged} & \textbf{Difference} \\
+\midrule
+$\vpv$ mean (\si{\volt})            & 158.169 & 157.800 & \SI{+0.234}{\percent} \\
+$i_L$ mean (\si{\ampere})           & 15.198  & 15.220  & \SI{-0.145}{\percent} \\
+$i_L$ ripple (\si{\ampere})         & 3.176   & 3.215   & \SI{-1.23}{\percent} \\
+$\vpv$ ripple (\si{\volt})          & 0.1946  & 0.2009  & \SI{-3.1}{\percent} \\
+$P_{\mathrm{pv}}$ mean (\si{\watt}) & 2401.60 & 2401.72 & \SI{-0.005}{\percent} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The agreement in Table~\ref{tab:swvalid} is close, and the residual differences
+are all explainable. The mean voltage is \SI{0.23}{\percent} high because the
+averaged model neglects the transistor on-resistance and the diode forward drop,
+which the switched model includes; those losses slightly reduce the current the
+converter draws, so the operating point sits marginally higher on the I--V
+curve. The ripple predictions from~\eqref{eq:iripple} are within
+\SI{1.3}{\percent}, and the mean power agrees to \SI{0.005}{\percent}.
+
+This validates the entire analytical chain. The linearisation, the frequency
+responses, the stability margins and the algorithm comparison all inherit their
+credibility from the averaged model, and the averaged model has now been checked
+against a circuit that makes none of its assumptions.
+
+\subsection{Closed loop}
+
+With the full cascaded controller and a perturb and observe tracker running on
+the switched circuit, through a \SI{1000}{} to \SI{500}{\watt\per\square\metre}
+step, the measured MPPT efficiency is \SI{99.93}{\percent}, consistent with the
+\SI{99.94}{\percent} obtained on the averaged model in
+Table~\ref{tab:stepcompare}.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{s06_switched_validation.png}
+\caption[Switched circuit validation]{Switched circuit results. Top left and top right, the \SI{20}{\kilo\hertz} ripple in inductor current and PV voltage, with the averaged model prediction as a dashed line. Bottom left, closed-loop tracking with the staircase perturb and observe reference visible. Bottom right, harvested power against the available maximum through the irradiance step.}
+\label{fig:swvalid}
+\end{figure}
+
+\section{Hardware requirements}
+
+This section specifies what would be needed to build the system that has been
+modelled. Ratings are derived from the simulated operating envelope with
+engineering margin.
+
+\subsection{Electrical stresses to design against}
+
+\begin{table}[htbp]
+\centering
+\caption{Worst-case electrical stresses from the simulated envelope.}
+\label{tab:stress}
+\begin{tabular}{@{}p{0.40\textwidth}rl@{}}
+\toprule
+\textbf{Quantity} & \textbf{Value} & \textbf{Origin} \\
+\midrule
+Maximum array open-circuit voltage & \SI{197.4}{\volt} & STC, 6 modules in series \\
+Open-circuit voltage at \SI{-10}{\celsius} & $\approx$ \SI{223}{\volt} & cold-morning worst case \\
+Maximum array current & \SI{16.4}{\ampere} & $\Isc$ at STC \\
+Peak inductor current & \SI{16.8}{\ampere} & mean plus half ripple \\
+Switch and diode blocking voltage & \SI{400}{\volt} & DC bus \\
+Maximum throughput power & \SI{2402}{\watt} & STC \\
+Switching frequency & \SI{20}{\kilo\hertz} & design choice \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The cold open-circuit voltage matters and is easy to overlook. With
+$\beta_{Voc} = \SI{-0.123}{\volt\per\kelvin}$ per module, six modules in series
+at \SI{-10}{\celsius} reach roughly \SI{223}{\volt}, some \SI{13}{\percent}
+above the STC figure. Input-side components must be rated for that, not for the
+STC number.
+
+\subsection{Component selection}
+
+\begin{table}[htbp]
+\centering
+\caption{Proposed component selection with justification.}
+\label{tab:bom}
+\begin{tabular}{@{}p{0.20\textwidth}p{0.30\textwidth}p{0.42\textwidth}@{}}
+\toprule
+\textbf{Item} & \textbf{Specification} & \textbf{Reason} \\
+\midrule
+Transistor & \SI{650}{\volt} silicon carbide MOSFET, $R_{ds(on)} \le \SI{40}{\milli\ohm}$, \SI{30}{\ampere} & \SI{400}{\volt} bus plus switching overshoot needs \SI{650}{\volt}; silicon carbide keeps switching loss low at \SI{20}{\kilo\hertz} \\
+Diode & \SI{650}{\volt} silicon carbide Schottky, \SI{20}{\ampere} & zero reverse recovery removes the dominant turn-on loss and the associated electromagnetic interference \\
+Inductor & \SI{1.5}{\milli\henry}, \SI{20}{\ampere} saturation, $\le \SI{0.15}{\ohm}$, powdered iron or ferrite with gap & value set by the \SI{20}{\percent} ripple target; saturation rating above the \SI{16.8}{\ampere} peak \\
+Input capacitor & \SI{100}{\micro\farad}, \SI{450}{\volt}, film or low-equivalent-series-resistance electrolytic & sets PV voltage ripple; film preferred for lifetime and ripple current capability \\
+Output capacitor & \SI{470}{\micro\farad}, \SI{450}{\volt} & bus stiffening and ripple current \\
+Gate driver & isolated, $\ge \SI{4}{\ampere}$ peak, with desaturation protection & the switch source is at circuit ground here, but isolation eases layout and protects the controller \\
+Controller & microcontroller or digital signal processor with $\ge \SI{100}{MIPS}$, two channels of \SI{12}{bit} analogue to digital conversion, one pulse width modulation timer & the control law is light; the requirement is deterministic \SI{50}{\micro\second} timing \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Sensing}
+
+The controller needs three measurements.
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \term{PV voltage}: a resistive divider scaling \SI{0}{} to
+        \SI{250}{\volt} onto the analogue-to-digital converter range, with an
+        anti-alias filter. A corner around \SI{5}{\kilo\hertz} is a reasonable
+        compromise: high enough not to intrude on the \SI{2}{\kilo\hertz} inner
+        loop, low enough to attenuate switching noise.
+  \item \term{PV current}: a low-side shunt with a current-sense amplifier, or a
+        Hall-effect sensor if galvanic isolation is wanted. Resolution matters
+        more than absolute accuracy, because the tracker works on
+        \emph{differences}.
+  \item \term{Inductor current}: required for the inner loop, and best sampled
+        synchronously at the centre of the switch on-time, where the
+        instantaneous value equals the cycle average. This standard technique
+        removes switching ripple from the measurement without a filter and
+        without added phase lag.
+\end{itemize}
+
+Sensor resolution deserves emphasis. Near the maximum power point the power
+gradient is by definition zero, so the power differences a hill-climbing tracker
+must resolve are small. A \SI{1.5}{\volt} perturbation at
+\SI{2400}{\watt} changes power by only a few watts, roughly
+\SI{0.1}{\percent}. Twelve-bit conversion on both channels is the practical
+minimum, and averaging several samples per control period is advisable.
+
+\subsection{Protection}
+
+\begin{itemize}[leftmargin=1.4em]
+  \item Input fuse or circuit breaker rated above $\Isc$ with photovoltaic-rated
+        breaking capability, since a photovoltaic source cannot supply the large
+        fault current an ordinary fuse expects.
+  \item Cycle-by-cycle overcurrent trip in the pulse width modulation hardware,
+        independent of software.
+  \item DC bus overvoltage trip, protecting against the load disappearing.
+  \item Overtemperature shutdown on the heatsink.
+  \item Anti-windup and duty limiting in software, already implemented in the
+        control law, plus a watchdog timer.
+\end{itemize}
+
+\subsection{Thermal design}
+
+At full power the transistor conducts roughly \SI{16}{\ampere} for
+\SI{61}{\percent} of the period, giving a conduction loss near \SI{6}{\watt} at
+\SI{40}{\milli\ohm}, with switching loss of a similar order at
+\SI{20}{\kilo\hertz}. The diode conducts \SI{16}{\ampere} for \SI{39}{\percent}
+of the period at around \SI{1.5}{\volt}, roughly \SI{9}{\watt}. The inductor
+dissipates $I^2 R \approx \SI{35}{\watt}$ at \SI{0.15}{\ohm}, which is the
+dominant loss and argues for a lower-resistance winding in a real build. A
+heatsink of about \SI{2}{\kelvin\per\watt} with modest airflow is adequate for
+the semiconductors.
+
+\section{Staged build plan}
+
+\begin{table}[htbp]
+\centering
+\caption{Proposed hardware build sequence, each stage gated by a measurable outcome.}
+\label{tab:buildplan}
+\begin{tabular}{@{}rp{0.32\textwidth}p{0.46\textwidth}@{}}
+\toprule
+\textbf{Stage} & \textbf{Activity} & \textbf{Exit criterion} \\
+\midrule
+1 & Controller board bring-up, no power stage & Pulse width modulation at \SI{20}{\kilo\hertz} with commanded duty; analogue channels reading correctly \\
+2 & Open-loop power stage on a DC supply with a resistive source emulating the array & Measured voltage conversion ratio matches~\eqref{eq:dutyexact}; ripple matches~\eqref{eq:iripple} within \SI{10}{\percent} \\
+3 & Close the inner current loop & Step in current reference settles in under \SI{1}{\milli\second} with no overshoot; measured loop gain crosses near \SI{2}{\kilo\hertz} \\
+4 & Close the outer voltage loop & \SI{140}{} to \SI{165}{\volt} reference step settles within \SI{15}{\milli\second}, zero steady-state error \\
+5 & Substitute a photovoltaic array simulator for the DC supply & Measured I--V curve matches the identified model; static MPPT efficiency above \SI{99}{\percent} \\
+6 & Enable the MPPT layer & Tracker converges from any starting point; limit cycle equals twice the step \\
+7 & Run EN 50530 ramp profiles on the simulator & Dynamic MPPT efficiency within \SI{0.5}{\percent} of the simulated values in Table~\ref{tab:dyneta} \\
+8 & Outdoor testing with real modules & Sustained operation across a day; energy harvested compared against a reference sweep \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two points about this plan. First, a \term{photovoltaic array simulator}, a
+programmable supply that reproduces a specified I--V curve, is what makes stages
+5 to 7 repeatable; real sunlight is not a controlled input and cannot be used to
+compare algorithms. Second, the exit criteria are quantitative and taken
+directly from the simulation results in this report, so the hardware campaign
+tests the model rather than merely producing waveforms.
+
+\section{Limitations of the physical model}
+
+Stated plainly, so that the results are not over-claimed:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item The DC bus is treated as an ideal stiff source. A real bus has finite
+        capacitance and its own regulator, which introduces additional dynamics.
+  \item Switching devices are ideal apart from on-resistance and forward drop.
+        Turn-on and turn-off transitions, parasitic inductance, reverse recovery
+        and gate drive delay are not modelled, so this model cannot be used for
+        electromagnetic interference or switching loss prediction.
+  \item Cell temperature is an input rather than a state. A real panel has
+        thermal mass and its temperature follows irradiance with a time constant
+        of minutes.
+  \item Uniform illumination is assumed, so no partial shading and no multiple
+        local maxima.
+  \item Sensor noise, quantisation and offset are not modelled, which is why
+        incremental conductance shows no advantage over perturb and observe in
+        Chapter~\ref{ch:benchmark}.
+\end{itemize}

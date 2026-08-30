@@ -1,0 +1,215 @@
+\chapter{Modelling the Photovoltaic Array}
+\label{ch:pvmodel}
+
+\section{What the model has to be good at}
+
+For an MPPT study the model must do more than reproduce the three datasheet
+points. The controller lives on the \emph{curvature} of the characteristic: the
+plant gain is set by the dynamic resistance $r_d$, which is a derivative, and
+the MPPT layer operates on $\mathrm{d}P/\mathrm{d}V$, which is another
+derivative. A model that passes through $\Isc$, $\Voc$ and the MPP but has the
+wrong shape between them would give plausible-looking power numbers and
+completely wrong control conclusions.
+
+Three requirements follow:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item The five parameters must be identified from constraints that pin the
+        \emph{slope} as well as the position of the curve.
+  \item Derivatives must be computed analytically, not by finite differences of
+        a numerically solved current.
+  \item The maximum power point used as ground truth must be exact to solver
+        tolerance, since it forms the denominator of the efficiency metric.
+\end{enumerate}
+
+\section{Parameter identification}
+
+\subsection{The five constraints}
+
+There are five unknowns, $\{I_{ph}, I_0, R_s, R_{sh}, a\}$. Five independent
+conditions are imposed, all evaluated at STC:
+
+\begin{align}
+\text{short circuit:} \quad & I(0) = \Isc \label{eq:c1}\\
+\text{open circuit:} \quad & I(\Voc) = 0 \label{eq:c2}\\
+\text{maximum power point:} \quad & I(\Vmp) = \Imp \label{eq:c3}\\
+\text{stationarity at the MPP:} \quad & \Imp + \Vmp \left.\frac{\mathrm{d}I}{\mathrm{d}V}\right|_{\Vmp} = 0 \label{eq:c4}\\
+\text{temperature coefficient:} \quad & \left.\frac{\mathrm{d}\Voc}{\mathrm{d}T}\right|_{T_{ref}} = \beta_{Voc} \label{eq:c5}
+\end{align}
+
+Conditions~\eqref{eq:c1} to~\eqref{eq:c3} place the curve through three known
+points. Condition~\eqref{eq:c4} is the crucial one: it forces the model to have
+the correct \emph{slope} at the MPP, which is what fixes the curvature and hence
+$r_d$. Condition~\eqref{eq:c5} closes the system using the published temperature
+coefficient, which is the De Soto closure and uses information that simpler
+identification schemes discard.
+
+\subsection{Why not fix the ideality factor}
+
+A common alternative, due to Villalva et al.~\cite{villalva}, fixes $a$ at an
+assumed value and iterates on $R_s$ until the modelled peak power matches the
+datasheet. That method is robust and widely used, but it leaves one parameter to
+the modeller's judgement and does not use $\beta_{Voc}$ at all. Solving all five
+equations simultaneously removes that arbitrariness, and the resulting ideality
+factor becomes an \emph{output} that can be sanity-checked against physics: a
+value near unity is expected for a good crystalline silicon cell.
+
+\subsection{Numerical formulation}
+
+The system is solved with a trust-region method on the residual vector. Three
+implementation choices make it reliable:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Log parameterisation.} The solver works with
+        $\left[I_{ph},\ \ln I_0,\ \ln R_s,\ \ln R_{sh},\ n\right]$, which keeps
+        every physical quantity positive by construction and conditions the
+        problem, since $I_0$ spans ten orders of magnitude.
+  \item \textbf{Residual scaling.} The four current residuals are divided by
+        $\Isc$ and the temperature residual by $|\beta_{Voc}|$, so all five
+        entries are of comparable size and the trust region is meaningful.
+  \item \textbf{Multi-start.} The solve is repeated from six ideality-factor
+        seeds between \num{0.8} and \num{2.0}, and the best converged result is
+        kept, so the answer does not depend on a lucky initial guess.
+\end{itemize}
+
+\subsection{Results}
+
+Table~\ref{tab:pvfit} shows the identified parameters and
+Table~\ref{tab:pvvalid} the resulting agreement with the datasheet. All five
+constraints are satisfied to machine precision, and the extracted ideality
+factor of \num{1.0036} is physically sensible for a multicrystalline silicon
+cell.
+
+\begin{table}[htbp]
+\centering
+\caption{Identified reference parameters for the Kyocera KC200GT, module level, at standard test conditions.}
+\label{tab:pvfit}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Parameter} & \textbf{Symbol} & \textbf{Value} & \textbf{Unit} \\
+\midrule
+Photocurrent            & $I_{ph,ref}$  & \num{8.22713}    & \si{\ampere} \\
+Saturation current      & $I_{0,ref}$   & \num{4.3964e-10} & \si{\ampere} \\
+Series resistance       & $R_{s,ref}$   & \num{0.33501}    & \si{\ohm} \\
+Shunt resistance        & $R_{sh,ref}$  & \num{160.6015}   & \si{\ohm} \\
+Modified ideality factor& $a_{ref}$     & \num{1.39246}    & \si{\volt} \\
+Diode ideality factor   & $n$           & \num{1.0036}     & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Model against datasheet at standard test conditions. The residual is at the level of double-precision round-off.}
+\label{tab:pvvalid}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Quantity} & \textbf{Datasheet} & \textbf{Model} & \textbf{Error (\si{\percent})} \\
+\midrule
+$\Voc$ (\si{\volt})            & 32.90    & 32.90    & \num{0} \\
+$\Isc$ (\si{\ampere})          & 8.21     & 8.21     & \num{0} \\
+$\Vmp$ (\si{\volt})            & 26.30    & 26.30    & \num{-1.4e-14} \\
+$\Imp$ (\si{\ampere})          & 7.61     & 7.61     & \num{0} \\
+$\Pmp$ (\si{\watt})            & 200.14   & 200.14   & \num{0} \\
+$\beta_{Voc}$ (\si{\volt\per\kelvin}) & -0.12301 & -0.12301 & \num{1.1e-14} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The same procedure applied to a SunPower SPR-305E-WHT-D, a 96-cell
+monocrystalline module of quite different construction, converges equally well
+with a worst error of \SI{7e-11}{\percent}, which indicates that the method is
+not tuned to one datasheet.
+
+\section{Solving the implicit equation}
+\label{sec:solver}
+
+Because~\eqref{eq:singlediode} cannot be inverted in closed form, terminal
+current is obtained by Newton iteration on the residual
+
+\begin{equation}
+f(I) = I_{ph} - I_0\left[\exp\!\left(\tfrac{V + I R_s}{a}\right) - 1\right] - \frac{V + I R_s}{R_{sh}} - I .
+\end{equation}
+
+Three properties make this safe. First, $f$ is strictly decreasing in $I$, so
+the root is unique. Second, starting from $I = 0$ the residual is positive
+whenever $V < \Voc$, and for a concave decreasing function Newton's method
+converges monotonically from that side. Third, the exponent is clamped and a
+backtracking line search halves the step whenever the residual magnitude would
+grow, which covers the transient excursions beyond $\Voc$ that a controller can
+briefly demand.
+
+In simulation the previous sample's current is supplied as the initial guess.
+This warm start reduces the iteration count to two or three and is what makes
+second-scale closed-loop simulation practical.
+
+\section{Derived quantities}
+
+The slope is evaluated from the analytic expression~\eqref{eq:didv} rather than
+by differencing. Verification against a central difference over the range
+$0.05\,\Voc$ to $0.97\,\Voc$ agrees to a relative error below \num{1e-5}, which
+is the accuracy floor of the difference itself, not of the analytic formula.
+
+The maximum power point is found by scanning \num{400} points to bracket the
+peak and then root-solving the analytic $\mathrm{d}P/\mathrm{d}V$ inside that
+bracket. The stationarity residual at the returned point is below
+\SI{1e-6}{\watt\per\volt}.
+
+\section{Behaviour of the model}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{s01_pv_characteristics.png}
+\caption[Photovoltaic array characteristics]{Characteristics of the 6 series by 2 parallel KC200GT array. Top left, I--V curves at \SI{25}{\celsius}; top right, the corresponding P--V curves with a single interior maximum; bottom left, the effect of cell temperature at \SI{1000}{\watt\per\square\metre}; bottom right, dynamic resistance $r_d$ on a logarithmic axis, which is the quantity that sets the plant gain.}
+\label{fig:pvchar}
+\end{figure}
+
+Figure~\ref{fig:pvchar} shows the identified model in use.
+Table~\ref{tab:pvops} lists the array operating points.
+
+\begin{table}[htbp]
+\centering
+\caption{Array operating points at \SI{25}{\celsius}, 6 series by 2 parallel.}
+\label{tab:pvops}
+\begin{tabular}{@{}rrrrrrrr@{}}
+\toprule
+$G$ & $\Vmp$ & $\Imp$ & $\Pmp$ & $\Voc$ & $\Isc$ & $FF$ & $r_d$ at MPP \\
+(\si{\watt\per\square\metre}) & (\si{\volt}) & (\si{\ampere}) & (\si{\watt}) & (\si{\volt}) & (\si{\ampere}) & & (\si{\ohm}) \\
+\midrule
+200  & 156.02 & 3.061  & 477.6  & 183.97 & 3.290  & 0.789 & 50.97 \\
+400  & 158.75 & 6.117  & 971.1  & 189.75 & 6.576  & 0.778 & 25.95 \\
+600  & 159.21 & 9.163  & 1458.8 & 193.14 & 9.860  & 0.766 & 17.38 \\
+800  & 158.75 & 12.198 & 1936.4 & 195.54 & 13.141 & 0.754 & 13.02 \\
+1000 & 157.80 & 15.220 & 2401.7 & 197.40 & 16.420 & 0.741 & 10.37 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three observations from these results shape everything that follows.
+
+\subsection{The MPP voltage is remarkably stable against irradiance}
+
+Across a fivefold change in irradiance, $\Vmp$ moves only from
+\SI{156.0}{\volt} to \SI{159.2}{\volt}, about \SI{2}{\percent}. This is why
+regulating PV \emph{voltage} is a sensible inner objective: the target barely
+moves, so the outer MPPT layer only has to make small corrections. It is also
+the basis of the crude ``fractional open-circuit voltage'' MPPT methods, which
+simply hold $\vpv \approx 0.78\,\Voc$.
+
+\subsection{Temperature moves the MPP far more than irradiance does}
+
+The bottom-left panel of Figure~\ref{fig:pvchar} shows $\Vmp$ falling
+substantially as cell temperature rises, because $\Voc$ falls at
+\SI{-0.123}{\volt\per\kelvin} per module, that is \SI{-0.738}{\volt\per\kelvin}
+for the six-module string. Over a realistic \SI{40}{\kelvin} swing that is
+nearly \SI{30}{\volt}. Temperature, not irradiance, is the dominant influence on
+where the MPP sits, even though irradiance dominates how much power is there.
+
+\subsection{The dynamic resistance varies enormously}
+
+At the MPP, $r_d$ ranges from \SI{10.4}{\ohm} at full sun to \SI{51.0}{\ohm} at
+\SI{200}{\watt\per\square\metre}. Along the curve at fixed irradiance the swing
+is far larger still, from under \SI{2}{\ohm} near $\Voc$ to nearly
+\SI{500}{\ohm} on the current-source branch. Chapter~\ref{ch:converter} shows
+that this variation maps directly onto the damping of the converter's dominant
+mode, which is the central difficulty of the control problem.

@@ -1,0 +1,282 @@
+\chapter{Control Design and Analysis}
+\label{ch:control}
+
+\section{The design problem}
+
+Chapter~\ref{ch:converter} established the difficulty precisely. The plant
+$G_{vd}$ is a second-order resonance whose frequency is essentially fixed at
+about \SI{412}{\hertz} but whose damping ratio varies from \num{0.023} to
+\num{1.035} depending only on where the array sits on its I--V curve. A
+controller must hold adequate stability margins across that entire range, using
+one fixed set of gains, because the operating point is dictated by the MPPT
+layer and by the weather rather than by the designer.
+
+Two candidate architectures are compared.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  scale=0.88, transform shape,
+  font=\small,
+  box/.style={draw, rounded corners=2pt, minimum height=9mm, minimum width=24mm, align=center},
+  >={Stealth[length=2.2mm]}
+]
+\node[box] (mppt) {MPPT\\ \SI{50}{\hertz}};
+\node[box, right=10mm of mppt] (vloop) {Voltage PI\\ \SI{250}{\hertz}};
+\node[box, right=10mm of vloop] (iloop) {Current PI\\ \SI{2}{\kilo\hertz}};
+\node[box, right=10mm of iloop] (pwm) {PWM\\ \SI{20}{\kilo\hertz}};
+\node[box, right=10mm of pwm] (plant) {Converter\\ and array};
+
+\draw[->] (mppt) -- node[above]{$V^\ast$} (vloop);
+\draw[->] (vloop) -- node[above]{$i_L^\ast$} (iloop);
+\draw[->] (iloop) -- node[above]{$d$} (pwm);
+\draw[->] (pwm) -- (plant);
+
+\coordinate (out) at ($(plant.east)+(9mm,0)$);
+\draw[->] (plant.east) -- (out) node[right]{$\vpv,\ \ipv,\ i_L$};
+
+\draw[->] ($(plant.east)+(5mm,0)$) |- ($(iloop.south)+(0,-7mm)$) -| (iloop.south)
+  node[pos=0.25, below]{$i_L$};
+\draw[->] ($(plant.east)+(7mm,0)$) |- ($(vloop.south)+(0,-14mm)$) -| (vloop.south)
+  node[pos=0.25, below]{$\vpv$};
+\draw[->] ($(plant.east)+(9mm,0)$) |- ($(mppt.south)+(0,-21mm)$) -| (mppt.south)
+  node[pos=0.25, below]{$\vpv,\ \ipv$};
+\end{tikzpicture}}
+\caption[Cascaded control architecture]{The cascaded architecture. Each layer commands the reference of the layer to its left and runs roughly eight times slower than the layer to its right.}
+\label{fig:cascade}
+\end{figure}
+
+\begin{description}[leftmargin=0pt, style=unboxed]
+\item[Single-loop.] One proportional--integral controller acting on the PV
+  voltage error and producing the duty ratio directly. This is the obvious first
+  attempt and appears widely in the MPPT literature.
+\item[Cascade.] An inner PI regulating inductor current, with an outer PI
+  regulating PV voltage by commanding the inner current reference, as in
+  Figure~\ref{fig:cascade}.
+\end{description}
+
+\section{The single-loop design and why it fails}
+
+\subsection{Design}
+
+The single-loop controller was designed conventionally: crossover placed at
+\SI{130}{\hertz}, roughly a third of the LC resonance, with the PI zero a factor
+of five below crossover at \SI{26}{\hertz}. Evaluating the plant magnitude at
+crossover and solving $|L(j\omega_c)| = 1$ gives $K_p = \num{2.264e-3}$ and
+$K_i = \num{0.370}$. Designed at the STC maximum power point, this is a
+perfectly reasonable-looking design.
+
+\subsection{The multiple-crossover problem}
+
+The trouble appears immediately when the loop gain is examined over frequency
+rather than at a single point. Because a PI contributes an approximately flat
+gain above its zero, and because the plant magnitude is flat below its
+resonance, the loop gain is nearly flat between the intended crossover and the
+resonance. The resonance then lifts the magnitude by up to \SI{27}{\decibel},
+pushing $|L|$ back above unity, and it must come down through unity a third
+time on the far side, by which point the plant has contributed its full
+\SI{-180}{\degree}.
+
+The measured result is three gain crossovers, at \SI{56}{\hertz},
+\SI{130}{\hertz} and \SI{542}{\hertz}, with a peak loop gain of
+\SI{43.4}{\decibel}. When a loop crosses unity more than once, quoting the
+margin at the intended crossover is meaningless; the relevant number is the
+worst margin over all crossings.
+
+\subsection{Collapse of the phase margin}
+
+Table~\ref{tab:singleloop} gives the worst-case phase margin along the I--V
+curve. On the current-source branch, where the damping ratio is \num{0.023}, the
+phase margin falls to \SI{1.5}{\degree}. The loop is nominally stable, but a
+\SI{1.5}{\degree} margin is no margin at all: any unmodelled delay, any sensor
+filter, any component tolerance destroys it, and even nominally it would ring
+almost undamped for a very long time.
+
+\begin{table}[htbp]
+\centering
+\caption{Worst-case phase margin along the I--V curve at \SI{1000}{\watt\per\square\metre}. The single-loop controller degrades exactly where the array behaves as a current source.}
+\label{tab:singleloop}
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+$V$ (\si{\volt}) & $r_d$ (\si{\ohm}) & $\zeta$ & \multicolumn{2}{c}{Single-loop PI} & Cascade outer \\
+\cmidrule(lr){4-5}\cmidrule(lr){6-6}
+ & & & PM (\si{\degree}) & crossings & PM (\si{\degree}) \\
+\midrule
+69.09  & 482.1 & 0.0234 & 1.46  & 3 & 85.3 \\
+88.83  & 475.8 & 0.0234 & 1.47  & 3 & 85.3 \\
+108.57 & 417.6 & 0.0240 & 1.57  & 3 & 85.4 \\
+128.31 & 182.9 & 0.0299 & 2.61  & 3 & 86.4 \\
+138.18 & 77.23 & 0.0444 & 5.14  & 3 & 88.8 \\
+148.05 & 27.94 & 0.0884 & 12.91 & 3 & 95.9 \\
+157.92 & 10.25 & 0.2068 & 34.50 & 3 & 114.2 \\
+167.79 & 4.458 & 0.4463 & 88.62 & 3 & 122.7 \\
+177.66 & 2.539 & 0.7600 & 139.8 & 1 & 110.6 \\
+187.53 & 1.832 & 1.0350 & 135.4 & 1 & 105.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This is not a matter of retuning. The problem is structural: a PI has no
+mechanism for damping a resonance it cannot see, and the required gain reduction
+to keep $|L|$ below unity through the resonance would push crossover down to a
+few hertz, making the loop uselessly slow.
+
+\section{The cascaded design}
+
+\subsection{Why an inner current loop fixes the problem}
+
+Consider the transfer function from duty ratio to inductor current,
+
+\begin{equation}
+G_{id}(s) = \frac{i_L(s)}{d(s)}
+= \frac{V_{dc}}{L}\cdot
+  \frac{s - g/C_{\mathrm{pv}}}
+       {s^2 + \left(\tfrac{R_L}{L} - \tfrac{g}{C_{\mathrm{pv}}}\right)s + \tfrac{1-gR_L}{L C_{\mathrm{pv}}}} .
+\label{eq:Gid}
+\end{equation}
+
+The zero sits at $s = g/C_{\mathrm{pv}}$, which is in the left half plane
+because $g < 0$, so this path is minimum phase. More importantly, at frequencies
+well above the resonance the expression collapses to
+
+\begin{equation}
+G_{id}(s) \;\approx\; \frac{V_{dc}}{L s},
+\label{eq:Gidhf}
+\end{equation}
+
+a pure integrator whose gain depends only on $V_{dc}$ and $L$ and \emph{not at
+all} on the operating point. This is visible directly in the bottom-left panel
+of Figure~\ref{fig:plantbode}, where the six curves are indistinguishable above
+a few hundred hertz.
+
+So an inner loop closed at \SI{2}{\kilo\hertz}, comfortably above the
+\SI{412}{\hertz} resonance, sees an operating-point-independent plant. Its gains
+follow immediately from~\eqref{eq:Gidhf}: for unity loop gain at
+$\omega_{ci} = 2\pi \times \SI{2000}{\hertz}$,
+
+\begin{equation}
+K_{p,i} = \frac{L\,\omega_{ci}}{V_{dc}} = \num{0.04712},
+\qquad
+K_{i,i} = K_{p,i}\frac{\omega_{ci}}{10} = \num{59.2},
+\end{equation}
+
+placing the PI zero a decade below crossover. Because the plant contributes
+\SI{-90}{\degree} there and the PI adds only a few degrees more, the phase
+margin is close to \SI{85}{\degree} by construction.
+
+\subsection{The outer loop sees a first-order plant}
+
+With the inner loop fast and accurate, $i_L \approx i_L^\ast$, and the input
+capacitor equation~\eqref{eq:av1} linearises to
+
+\begin{equation}
+\frac{\tilde v_{\mathrm{pv}}(s)}{\tilde i_L^\ast(s)}
+= \frac{-1}{C_{\mathrm{pv}} s - g}
+= \frac{-1}{C_{\mathrm{pv}} s + 1/r_d} .
+\label{eq:outerplant}
+\end{equation}
+
+The resonance is gone. What remains is a single real pole at
+$1/(r_d C_{\mathrm{pv}})$. Its DC gain is $r_d$, which still varies widely, but
+at the outer crossover of \SI{250}{\hertz} the capacitive term dominates
+whenever $\omega \gg 1/(r_d C_{\mathrm{pv}})$, so the plant looks like
+$1/(C_{\mathrm{pv}} s)$ and the required proportional gain is again
+operating-point independent:
+
+\begin{equation}
+K_{p,v} = C_{\mathrm{pv}}\,\omega_{cv} = \num{0.15708},
+\qquad
+K_{i,v} = K_{p,v}\frac{\omega_{cv}}{5} = \num{49.35}.
+\end{equation}
+
+Physically, the inner current loop turns the inductor into a controlled current
+source, and a controlled current source charging a capacitor is about the
+easiest plant in control engineering. That is the whole reason the cascade
+works.
+
+\subsection{Verification on the full-order model}
+
+The gains above were derived from simplified models: the high-frequency
+approximation~\eqref{eq:Gidhf} for the inner loop and the ideal-inner-loop
+approximation~\eqref{eq:outerplant} for the outer. Design on a simplified model
+is only legitimate if the result is then checked on the full one.
+
+Both loops were therefore re-analysed on the exact second-order plant, with the
+inner loop closed exactly rather than assumed ideal:
+
+\begin{align}
+L_i(s) &= C_i(s)\,G_{id}(s), \\
+L_v(s) &= -C_v(s)\cdot G_{vd}(s)\,\frac{C_i(s)}{1 + C_i(s) G_{id}(s)} .
+\end{align}
+
+Results are in the last column of Table~\ref{tab:singleloop} and in
+Table~\ref{tab:cascadeG}. The inner loop margin is between \SI{85.0}{\degree}
+and \SI{85.8}{\degree} everywhere, confirming operating-point independence. The
+outer loop margin is between \SI{85.3}{\degree} and \SI{122.7}{\degree}, always
+far above the \SI{45}{\degree} target.
+
+\begin{table}[htbp]
+\centering
+\caption{Cascade margins at the maximum power point across irradiance, verified on the full-order plant.}
+\label{tab:cascadeG}
+\begin{tabular}{@{}rrrrrr@{}}
+\toprule
+$G$ (\si{\watt\per\square\metre}) & $r_d$ (\si{\ohm}) & Inner PM (\si{\degree}) & Inner $f_c$ (\si{\hertz}) & Outer PM (\si{\degree}) & Outer $f_c$ (\si{\hertz}) \\
+\midrule
+200  & 50.97 & 85.02 & 2090 & 90.9  & 215.7 \\
+400  & 25.95 & 85.06 & 2090 & 96.8  & 205.0 \\
+600  & 17.38 & 85.09 & 2090 & 102.6 & 191.4 \\
+800  & 13.02 & 85.12 & 2090 & 108.4 & 174.7 \\
+1000 & 10.37 & 85.16 & 2089 & 113.9 & 155.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{s03_control_design.png}
+\caption[Control design comparison]{Comparison of the two architectures. Top left, single-loop gain magnitude at five operating points: the resonance forces the curve back above \SI{0}{\decibel}. Top right, the cascade outer loop crosses unity once and cleanly. Bottom left, worst-case phase margin against operating voltage, the central result of the chapter. Bottom right, closed-loop reference step responses of the cascade at five operating points.}
+\label{fig:controldesign}
+\end{figure}
+
+\subsection{Bandwidth variation and what it costs}
+
+One genuine operating-point dependence remains in the cascade: the outer
+crossover falls from about \SI{223}{\hertz} on the current-source branch to
+\SI{15}{\hertz} near $\Voc$. This happens because the plant DC gain $r_d$ has
+become so small there that the loop gain drops below unity at a lower frequency.
+The bottom-right panel of Figure~\ref{fig:controldesign} shows the
+consequence directly: the settling time varies from a few milliseconds to about
+\SI{50}{\milli\second} across the range.
+
+This variation is benign, because the slow region is far from the maximum power
+point where the tracker actually operates, and because the phase margin remains
+above \SI{100}{\degree} throughout. If uniform bandwidth were required, the
+outer proportional gain could be scheduled on the measured $r_d$, which is
+directly available as $-\Delta \vpv / \Delta \ipv$ from the MPPT perturbations.
+That refinement was not needed here and is noted as future work.
+
+\subsection{Measured step response}
+
+The design predicts a \SI{250}{\hertz} outer loop with a large phase margin,
+therefore a well-damped response settling in roughly \SI{10}{\milli\second}.
+Simulating the full nonlinear averaged plant with the discrete controllers, a
+\SI{140}{\volt} to \SI{165}{\volt} reference step settles to within
+\SI{2}{\percent} in \SI{11.9}{\milli\second} with no overshoot, and the
+steady-state error is zero to solver precision. Measured against the analytic
+I--V curve, the settled operating point matches to better than
+\SI{0.05}{\percent} in both voltage and current.
+
+\section{Consequences for the MPPT layer}
+
+The voltage loop settling time of roughly \SI{12}{\milli\second} is not merely a
+performance figure; it is a hard constraint on the layer above. A perturb and
+observe tracker must wait for the voltage loop to settle before it measures the
+power resulting from its perturbation, otherwise it measures a transient and
+draws the wrong conclusion. That is why the MPPT sample period was set to
+\SI{20}{\milli\second}, comfortably longer than the settling time.
+
+This is timescale separation appearing as a design rule rather than as an
+abstraction, and it is the reason a control-theoretic treatment of MPPT is
+worth the effort: the number \SI{20}{\milli\second} is derived, not guessed.

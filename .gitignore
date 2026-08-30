@@ -41,3 +41,10 @@ docs/*.lot
 docs/*.fls
 docs/*.fdb_latexmk
 docs/*.synctex.gz
+
+docs/report/main.pdf
+docs/**/*.aux
+docs/**/*.toc
+docs/**/*.lof
+docs/**/*.lot
+docs/**/*.out
