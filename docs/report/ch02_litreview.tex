@@ -1,0 +1,257 @@
+\chapter{Literature Review}
+\label{ch:litreview}
+
+\section{Scope and method of the review}
+
+This review covers the three bodies of work the project draws on: modelling of
+photovoltaic devices, maximum power point tracking algorithms, and the control
+of the power converter that carries out the tracking. It is organised
+thematically rather than chronologically, because the interesting structure in
+this literature is not a progression but a persistent \emph{separation}: the
+device modelling and the algorithm literature developed largely independently
+of the power-electronics control literature, and the gap between them is where
+this project sits.
+
+Each section states what is settled, what is contested, and what is assumed
+without justification. Section~\ref{sec:gap} draws the threads together into the
+gap this project addresses.
+
+\section{Modelling the photovoltaic device}
+
+\subsection{The single-diode model is settled; its parameterisation is not}
+
+There is no serious disagreement that the single-diode equation with series and
+shunt resistance is the right lumped model for a crystalline silicon module at
+the terminal level. Two-diode models exist and improve accuracy at very low
+irradiance by separating diffusion from recombination current, at the cost of
+two additional parameters that datasheets do not constrain. For terminal-level
+control studies the single-diode form is universal.
+
+What is genuinely contested is how to obtain the five parameters from the four
+or five numbers a datasheet provides. Three families of approach appear.
+
+\begin{description}[leftmargin=0pt, style=unboxed]
+\item[Fix the ideality factor and iterate.] Villalva, Gazoli and
+  Filho~\cite{villalva} fix $a$ at an assumed value and iterate on $R_s$,
+  computing $R_{sh}$ at each step from the requirement that the modelled peak
+  power equal the datasheet peak power. The method is robust, easy to implement
+  and has been cited thousands of times. Its weakness is that one parameter is
+  chosen by the modeller rather than identified, and the temperature coefficient
+  $\beta_{Voc}$, which the datasheet does provide, is never used.
+\item[Solve a determined system.] De Soto, Klein and Beckman~\cite{desoto} close
+  the system by requiring the model to reproduce the measured $\beta_{Voc}$,
+  giving five equations in five unknowns. This uses all the available datasheet
+  information and leaves nothing to judgement. It is the basis of the NREL
+  System Advisor Model. Its weakness is numerical: the system is badly scaled,
+  since $I_0$ spans ten orders of magnitude, and naive solvers fail to converge.
+\item[Fit to measured curves.] Where a full measured I--V curve is available,
+  least-squares or evolutionary fitting outperforms both. This is not available
+  from a datasheet and so is not applicable to a design study.
+\end{description}
+
+\subsection{What the literature rarely checks}
+
+Almost every published extraction reports agreement at $\Isc$, $\Voc$ and the
+maximum power point, because those are the constraints imposed. Very few report
+whether the \emph{slope} of the curve is right anywhere other than at those
+points. For an energy-yield study that omission is harmless. For a control
+study it is not, because as Chapter~\ref{ch:converter} shows, the small-signal
+plant depends on $\mathrm{d}I/\mathrm{d}V$ and not on the datasheet points at
+all. This project therefore adopts the De Soto closure, solves the badly scaled
+system properly, and verifies the derivative independently.
+
+\section{Maximum power point tracking algorithms}
+
+\subsection{The canonical survey and its framing}
+
+Esram and Chapman~\cite{esram} remains the standard survey, comparing nineteen
+methods on cost, sensors required, convergence speed and whether they find a
+true or approximate maximum. It established the vocabulary the field still uses.
+Its framing, however, is algorithmic: methods are compared as search procedures,
+with the converter treated as a means of imposing whatever operating point the
+algorithm requests. The possibility that the converter dynamics might limit
+which algorithms can work, or dictate their tuning, is largely outside its
+scope.
+
+\subsection{Perturb and observe and its known pathologies}
+
+Perturb and observe dominates practice because it needs only two sensors and a
+few lines of code. Its two well-documented weaknesses are the steady-state
+limit cycle, whose amplitude is set by the perturbation size, and the drift or
+confusion phenomenon under changing irradiance.
+
+Femia, Petrone, Spagnuolo and Vitelli~\cite{femia} gave the first systematic
+treatment of the second problem. Their central insight is directly
+control-theoretic: the perturbation period must be long enough for the converter
+to settle, otherwise the algorithm measures a transient rather than a new
+steady state, and the sign of the observed power change becomes unreliable. They
+derive a lower bound on the perturbation period from the converter's settling
+behaviour. This paper is the closest antecedent to the framing of the present
+project, and its influence on Chapter~\ref{ch:control} is explicit.
+
+Their later work~\cite{femia_book} extends this into a book-length treatment
+that consistently treats the converter as part of the tracking problem rather
+than as a black box.
+
+\subsection{Incremental conductance: a claimed advantage that is hard to observe}
+
+Incremental conductance~\cite{hussein} was introduced specifically to address
+rapidly changing atmospheric conditions, on the argument that evaluating the
+optimality condition $\mathrm{d}I/\mathrm{d}V = -I/V$ directly is more reliable
+than differencing power. The claim of superiority is widely repeated.
+
+The most careful comparison is by Sera and colleagues~\cite{sera}, who conclude
+that under equivalent implementation the two methods are essentially equivalent,
+because both ultimately compute the sign of the same quantity, and that reported
+differences usually come from unequal step sizes or unequal sampling rather than
+from the algorithms themselves. Elgendy, Zahawi and Atkinson~\cite{elgendy}
+reach a similar conclusion experimentally, finding implementation details
+dominate the choice of method.
+
+The present project reproduces exactly this result, and Chapter~\ref{ch:mppt}
+explains why: with the same step and the same sample period the two algorithms
+compute $\mathrm{sign}(\mathrm{d}P/\mathrm{d}V)$ by two routes. The distinction
+should reappear when measurement noise is modelled, which this project does not
+do and which is stated as a limitation.
+
+\subsection{Variable-step methods and their risk}
+
+A large literature proposes making the perturbation size adaptive, typically
+proportional to $|\mathrm{d}P/\mathrm{d}V|$, so that the tracker moves quickly
+when far from the peak and finely when near it. These papers almost invariably
+demonstrate improvement on a step-change benchmark.
+
+What is much less often examined is the stability of the adaptation law itself.
+The adaptation is a feedback loop, and Chapter~\ref{ch:benchmark} of this report
+shows it can be a positively fed-back one: if drift sends the tracker the wrong
+way, $|\mathrm{d}P/\mathrm{d}V|$ grows, which enlarges the step, which
+accelerates the departure. The result observed here, that the best performer on
+a step test is the worst on a ramp test, suggests that step-change benchmarking
+is actively misleading for this class of method.
+
+\subsection{Extremum seeking and ripple correlation control}
+
+Extremum seeking control has a rigorous foundation independent of photovoltaics.
+Krsti\'{c} and Wang~\cite{krstic} established local stability for general
+nonlinear plants using averaging and singular perturbation, and Ariyur and
+Krsti\'{c}~\cite{ariyur} give the design treatment. The method is attractive
+here precisely because it does not require knowing the location of the optimum,
+only that one exists.
+
+Leyva and colleagues~\cite{leyva} applied it to photovoltaic tracking and
+established the design constraints: the dither must be slow enough for the
+converter's voltage loop to follow it and fast enough to be separable from
+genuine irradiance variation. The permanent dither is an unavoidable
+steady-state cost.
+
+Ripple correlation control~\cite{rcc} is the elegant refinement: instead of
+adding a dither, it uses the switching ripple the converter already produces,
+correlating the ripple in power with the ripple in voltage to estimate the
+gradient. The steady-state penalty disappears because the excitation was there
+anyway. It requires bandwidth sufficient to observe the ripple, which is why it
+demands a switched rather than an averaged model, and it is identified in
+Chapter~\ref{ch:conclusions} as the natural next step for this project.
+
+\subsection{Global methods for partial shading}
+
+Under non-uniform illumination the P--V characteristic acquires multiple local
+maxima, and any local hill-climber can converge to the wrong one. Nguyen and
+Low~\cite{nguyen} are representative of the global-search response. This
+literature is important but orthogonal to the present work, which assumes
+uniform illumination throughout and says so.
+
+\section{Control of the tracking converter}
+
+\subsection{Averaging is the standard tool}
+
+State-space averaging, due to Middlebrook and \'{C}uk~\cite{middlebrook} and
+developed systematically by Erickson and Maksimovi\'{c}~\cite{erickson},
+replaces the switched converter with a continuous model valid well below the
+switching frequency. It is the foundation of essentially all converter control
+design and is used unmodified here. What matters for this project is a detail
+that general treatments do not emphasise: when the source is a photovoltaic
+array rather than a voltage source, the source's dynamic resistance enters the
+averaged model and varies over orders of magnitude with operating point.
+
+\subsection{The right half plane zero, and where it actually is}
+
+The boost converter's non-minimum-phase duty-to-output-voltage response is
+textbook material~\cite{erickson} and is the standard explanation for why boost
+converters have limited bandwidth. In the photovoltaic literature this is
+sometimes cited as a general limitation on MPPT bandwidth.
+
+That transfer is not, however, the one a photovoltaic-side tracker uses.
+Chapter~\ref{ch:converter} derives the duty-to-\emph{input}-voltage response and
+shows it has no finite zero at all. The apparent limitation disappears once the
+correct controlled variable is identified. This point is made in the
+power-electronics literature but is frequently lost in MPPT papers.
+
+\subsection{Cascade control of photovoltaic converters}
+
+Current-mode and cascaded control of DC--DC converters is long-established
+practice. Bratcu and colleagues~\cite{bratcu} treat power optimisation in
+cascaded photovoltaic converter systems explicitly, and Kjaer, Pedersen and
+Blaabjerg~\cite{kjaer} survey the converter architectures in which such loops
+sit. The benefits, damping of the output filter resonance and natural current
+limiting, are well understood in the power-electronics community.
+
+The gap is that MPPT papers rarely quantify them. It is common to see a
+photovoltaic voltage loop described as ``a PI controller'' with gains stated but
+no crossover frequency, no phase margin, and no indication of whether those
+margins hold at other operating points. The present project computes those
+margins across the whole envelope and compares the two architectures on that
+basis.
+
+\subsection{Benchmarking}
+
+Comparisons in the MPPT literature use widely varying test signals: step
+changes, ramps of unstated slope, or recorded irradiance traces. This makes
+published efficiency figures difficult to compare. EN 50530~\cite{en50530}
+exists precisely to fix this, specifying trapezoidal irradiance profiles with
+defined slopes and dwell times and defining dynamic MPPT efficiency as the
+figure of merit. Its adoption in the academic literature is patchy. This project
+uses profiles of that form, and states its deviations from the standard
+explicitly.
+
+\section{Synthesis and the gap addressed}
+\label{sec:gap}
+
+Three observations follow from the review.
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Device modelling and control analysis are usually decoupled.}
+        Parameter extraction is validated against datasheet points, which
+        constrain position but not curvature, while the small-signal plant
+        depends only on curvature. A model can therefore be validated by the
+        usual criteria and still be unfit for control design.
+  \item \textbf{MPPT algorithms are compared as search procedures, not as
+        outer loops of a controlled plant.} Sample periods, step sizes and
+        stability limits are usually chosen empirically, when they are in fact
+        determined by measurable properties of the converter loop.
+  \item \textbf{Benchmarking practice under-tests the failure modes that
+        matter.} Step-change tests reward exactly the adaptive schemes that
+        ramp tests expose.
+\end{enumerate}
+
+The gap this project addresses is the connective tissue. Specifically, it aims
+to:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item identify a photovoltaic model whose \emph{derivatives} are verified, not
+        only its operating points;
+  \item derive the small-signal plant explicitly, quantify how it varies over
+        the whole operating envelope, and show what that variation does to a
+        conventional design;
+  \item derive the MPPT sample period from the measured closed-loop settling
+        time rather than choosing it;
+  \item compare algorithms under identical inner loops on a standard-derived
+        dynamic benchmark, so that differences are attributable to the
+        algorithms;
+  \item and validate the whole chain against a switched circuit model that makes
+        none of the averaging assumptions.
+\end{itemize}
+
+None of the individual ingredients is novel. What the review suggests is
+under-served is their combination into a single verified chain from datasheet to
+switched circuit, with each link checked against something independent. That is
+what Chapter~\ref{ch:method} sets out as the methodology.

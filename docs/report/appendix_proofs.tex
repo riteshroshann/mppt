@@ -1,0 +1,547 @@
+\chapter{Derivations and Proofs}
+\label{app:proofs}
+
+This appendix derives every analytical result used in the main text. Each
+proposition restates a result, gives its equation number in the body, and proves
+it. Throughout, $g = \mathrm{d}I/\mathrm{d}V$ denotes the slope of the array
+characteristic at the operating point, and $g < 0$ everywhere on the
+operating range.
+
+\section{The photovoltaic characteristic}
+
+\begin{proposition}[Slope of the I--V curve, equation~\eqref{eq:didv}]
+\label{prop:didv}
+For the single-diode model~\eqref{eq:singlediode},
+\[
+\frac{\mathrm{d}I}{\mathrm{d}V}
+= -\,\frac{g_d + 1/R_{sh}}{1 + R_s g_d + R_s/R_{sh}},
+\qquad
+g_d \equiv \frac{I_0}{a}\exp\!\left(\frac{V + I R_s}{a}\right) > 0 .
+\]
+\end{proposition}
+
+\begin{proof}
+Write the model as the implicit relation $F(V,I) = 0$ with
+\[
+F(V,I) = I_{ph} - I_0\!\left[\exp\!\left(\tfrac{V + I R_s}{a}\right) - 1\right]
+         - \frac{V + I R_s}{R_{sh}} - I .
+\]
+Both partial derivatives follow from the chain rule, using
+$\partial(V+IR_s)/\partial V = 1$ and $\partial(V+IR_s)/\partial I = R_s$:
+\[
+\frac{\partial F}{\partial V} = -\frac{I_0}{a}\exp\!\left(\tfrac{V+IR_s}{a}\right) - \frac{1}{R_{sh}}
+= -\left(g_d + \frac{1}{R_{sh}}\right),
+\]
+\[
+\frac{\partial F}{\partial I} = -\frac{I_0 R_s}{a}\exp\!\left(\tfrac{V+IR_s}{a}\right) - \frac{R_s}{R_{sh}} - 1
+= -\left(1 + R_s g_d + \frac{R_s}{R_{sh}}\right).
+\]
+The second is strictly negative, so the implicit function theorem applies and
+\[
+\frac{\mathrm{d}I}{\mathrm{d}V} = -\frac{\partial F/\partial V}{\partial F/\partial I}
+= -\,\frac{g_d + 1/R_{sh}}{1 + R_s g_d + R_s/R_{sh}} ,
+\]
+which is the stated result. Since $g_d > 0$ and $R_s, R_{sh} > 0$, both
+numerator and denominator are positive, so $\mathrm{d}I/\mathrm{d}V < 0$
+everywhere: the characteristic is strictly decreasing.
+\end{proof}
+
+\begin{proposition}[Dynamic resistance at the maximum power point, equation~\eqref{eq:rdmpp}]
+\label{prop:rdmpp}
+At the maximum power point, $r_d = \Vmp/\Imp$: the dynamic resistance equals the
+static resistance.
+\end{proposition}
+
+\begin{proof}
+Stationarity of $P = VI$ requires
+$\mathrm{d}P/\mathrm{d}V = I + V\,\mathrm{d}I/\mathrm{d}V = 0$, hence
+$\mathrm{d}I/\mathrm{d}V = -I/V$ at that point. By
+definition~\eqref{eq:rd}, $r_d = -(\mathrm{d}I/\mathrm{d}V)^{-1} = V/I$.
+Evaluating at $(\Vmp, \Imp)$ gives the result. Note the maximum is interior
+because $P = 0$ at both $V = 0$ and $V = \Voc$ while $P > 0$ between, so a
+stationary point exists in $(0, \Voc)$ by Rolle's theorem.
+\end{proof}
+
+\begin{proposition}[Convergence of the Newton solve, Section~\ref{sec:solver}]
+\label{prop:newton}
+For any fixed $V$ with $0 \le V < \Voc$, the residual
+$f(I) = F(V,I)$ is strictly decreasing and strictly concave in $I$, and
+$f(0) > 0$. Consequently Newton's method started at $I = 0$ converges
+monotonically to the unique root.
+\end{proposition}
+
+\begin{proof}
+From the proof of Proposition~\ref{prop:didv},
+$f'(I) = -\left(1 + R_s g_d + R_s/R_{sh}\right) < 0$, so $f$ is strictly
+decreasing and the root is unique. Differentiating once more,
+\[
+f''(I) = -\frac{I_0 R_s^2}{a^2}\exp\!\left(\frac{V+IR_s}{a}\right) < 0,
+\]
+so $f$ is strictly concave.
+
+For the sign of $f(0)$: by definition $\Voc$ is the value of $V$ at which
+$f(0) = 0$, that is
+$I_{ph} - I_0[\exp(V/a) - 1] - V/R_{sh} = 0$. The left-hand side is strictly
+decreasing in $V$, so it is strictly positive for $V < \Voc$. Hence $f(0) > 0$.
+
+For a strictly decreasing, strictly concave function evaluated at a point where
+it is positive, the tangent line at that point lies above the function, so its
+root lies before the true root; the Newton iterate therefore increases and
+remains below the root. The sequence is monotone increasing and bounded above,
+hence convergent, and its limit satisfies $f = 0$. Convergence is quadratic
+because $f' \ne 0$ at the root.
+
+The backtracking line search in the implementation is required only for the
+transient case $V > \Voc$, where $f(0) < 0$ and the monotonicity argument does
+not apply.
+\end{proof}
+
+\section{The averaged converter}
+
+\begin{proposition}[Averaged state equations, equations~\eqref{eq:av1}--\eqref{eq:av2}]
+\label{prop:averaging}
+For the boost converter of Figure~\ref{fig:boostckt} operating in continuous
+conduction mode with duty ratio $d$, the cycle-averaged dynamics are
+\[
+C_{\mathrm{pv}}\dot{\vpv} = \ipv(\vpv) - i_L,
+\qquad
+L\,\dot{i}_L = \vpv - (1-d)V_{dc} - i_L R_L .
+\]
+\end{proposition}
+
+\begin{proof}
+Over one switching period the circuit takes two configurations.
+
+\emph{Switch closed}, for a duration $d T_{sw}$. The switching node is held at
+ground, so the inductor sees $\vpv$ across it less its own resistive drop:
+$L\,\dot{i}_L = \vpv - i_L R_L$. The diode is reverse biased and carries no
+current. Charge balance at the input node is
+$C_{\mathrm{pv}}\dot{\vpv} = \ipv - i_L$.
+
+\emph{Switch open}, for a duration $(1-d)T_{sw}$. The inductor current flows
+through the diode into the bus, so the switching node is at $V_{dc}$ and
+$L\,\dot{i}_L = \vpv - V_{dc} - i_L R_L$. The input node equation is unchanged,
+because the inductor current is drawn from the same node in both configurations.
+
+State-space averaging forms the duty-weighted sum of the two vector fields:
+\[
+L\,\dot{i}_L = d\left(\vpv - i_L R_L\right) + (1-d)\left(\vpv - V_{dc} - i_L R_L\right)
+= \vpv - (1-d)V_{dc} - i_L R_L,
+\]
+and the input equation, being identical in both configurations, averages to
+itself. The approximation is valid for signal frequencies well below $f_{sw}$,
+which holds here since the LC corner is \SI{411}{\hertz} against
+$f_{sw} = \SI{20}{\kilo\hertz}$.
+\end{proof}
+
+\begin{corollary}[Steady-state duty ratio, equation~\eqref{eq:dutyexact}]
+\label{cor:duty}
+Setting both derivatives to zero gives $i_L = \ipv(\vpv)$ and
+$D = 1 - (\vpv - i_L R_L)/V_{dc}$.
+\end{corollary}
+
+\begin{proof}
+$\dot{\vpv} = 0$ gives $i_L = \ipv(\vpv)$ directly. Substituting into
+$\dot{i}_L = 0$ gives $\vpv - (1-D)V_{dc} - i_L R_L = 0$, and solving for $D$
+yields the stated expression. With $R_L = 0$ this reduces to the ideal ratio
+$V_{dc} = \vpv/(1-D)$.
+\end{proof}
+
+\begin{proposition}[Linearised state matrices, equations~\eqref{eq:AB}--\eqref{eq:C}]
+\label{prop:linearise}
+Linearising Proposition~\ref{prop:averaging} about $(V, I, D)$ gives
+\[
+A = \begin{bmatrix} g/C_{\mathrm{pv}} & -1/C_{\mathrm{pv}} \\ 1/L & -R_L/L \end{bmatrix},
+\quad
+B = \begin{bmatrix} 0 \\ V_{dc}/L \end{bmatrix},
+\]
+and the linearised photovoltaic power output has gain $\mathrm{d}P/\mathrm{d}V$
+from the state $\tilde v_{\mathrm{pv}}$.
+\end{proposition}
+
+\begin{proof}
+Write $\vpv = V + \tilde v$, $i_L = I + \tilde\imath$, $d = D + \tilde d$ and
+retain first-order terms. The only nonlinearity is $\ipv(\vpv)$, which
+linearises as $\ipv \approx I + g\tilde v$ by definition of $g$. Then
+\[
+C_{\mathrm{pv}}\dot{\tilde v} = g\tilde v - \tilde\imath,
+\qquad
+L\,\dot{\tilde\imath} = \tilde v + V_{dc}\tilde d - \tilde\imath R_L ,
+\]
+where the input term follows from
+$-\partial\!\left[(1-d)V_{dc}\right]/\partial d = +V_{dc}$. Dividing by
+$C_{\mathrm{pv}}$ and $L$ gives $A$ and $B$.
+
+For the power output, $P = \vpv \ipv$, so
+\[
+\tilde P = I\tilde v + V\,\tilde\imath_{\mathrm{pv}} = I\tilde v + V g \tilde v
+= \left(I + Vg\right)\tilde v = \frac{\mathrm{d}P}{\mathrm{d}V}\,\tilde v ,
+\]
+using~\eqref{eq:dpdv}. This is the third row of $C$.
+\end{proof}
+
+\section{Transfer functions}
+
+\begin{proposition}[Duty to photovoltaic voltage, equation~\eqref{eq:Gvd}]
+\label{prop:Gvd}
+\[
+G_{vd}(s) = \frac{-V_{dc}/(L C_{\mathrm{pv}})}
+{s^2 + \left(\dfrac{R_L}{L} - \dfrac{g}{C_{\mathrm{pv}}}\right)s + \dfrac{1 - g R_L}{L C_{\mathrm{pv}}}} .
+\]
+\end{proposition}
+
+\begin{proof}
+With $C_1 = [\,1\ \ 0\,]$,
+\[
+sI - A = \begin{bmatrix} s - g/C_{\mathrm{pv}} & 1/C_{\mathrm{pv}} \\ -1/L & s + R_L/L \end{bmatrix},
+\]
+whose determinant is
+\[
+\Delta(s) = \left(s - \tfrac{g}{C_{\mathrm{pv}}}\right)\left(s + \tfrac{R_L}{L}\right) + \frac{1}{LC_{\mathrm{pv}}}
+= s^2 + \left(\frac{R_L}{L} - \frac{g}{C_{\mathrm{pv}}}\right)s + \frac{1 - gR_L}{LC_{\mathrm{pv}}} .
+\]
+For a $2\times 2$ matrix the inverse is the adjugate over the determinant:
+\[
+(sI-A)^{-1} = \frac{1}{\Delta(s)}\begin{bmatrix} s + R_L/L & -1/C_{\mathrm{pv}} \\ 1/L & s - g/C_{\mathrm{pv}}\end{bmatrix}.
+\]
+Therefore
+\[
+G_{vd}(s) = C_1 (sI-A)^{-1} B
+= \frac{1}{\Delta(s)}\begin{bmatrix} s + \tfrac{R_L}{L} & -\tfrac{1}{C_{\mathrm{pv}}}\end{bmatrix}
+\begin{bmatrix} 0 \\ \tfrac{V_{dc}}{L}\end{bmatrix}
+= \frac{-V_{dc}}{L C_{\mathrm{pv}}\,\Delta(s)} ,
+\]
+as claimed.
+\end{proof}
+
+\begin{corollary}[Absence of a right half plane zero, Section~\ref{sec:nozero}]
+\label{cor:nozero}
+$G_{vd}$ has no finite zeros, and in particular none in the right half plane.
+Its DC gain is $-V_{dc}/(1 - gR_L) < 0$.
+\end{corollary}
+
+\begin{proof}
+The numerator of Proposition~\ref{prop:Gvd} is the constant
+$-V_{dc}/(LC_{\mathrm{pv}})$, a polynomial of degree zero, which has no roots.
+Setting $s = 0$ gives
+$G_{vd}(0) = -V_{dc}/(LC_{\mathrm{pv}}) \cdot LC_{\mathrm{pv}}/(1-gR_L)
+= -V_{dc}/(1-gR_L)$, negative because $g < 0$ makes $1 - gR_L > 1 > 0$. The
+negative sign confirms that raising the duty ratio lowers the photovoltaic
+voltage.
+\end{proof}
+
+\begin{proposition}[Natural frequency and damping, equations~\eqref{eq:wn}--\eqref{eq:zeta}]
+\label{prop:modal}
+\[
+\omega_n = \sqrt{\frac{1 - gR_L}{LC_{\mathrm{pv}}}},
+\qquad
+2\zeta\omega_n = \frac{R_L}{L} + \frac{1}{r_d C_{\mathrm{pv}}} .
+\]
+\end{proposition}
+
+\begin{proof}
+Comparing $\Delta(s)$ from Proposition~\ref{prop:Gvd} with the standard form
+$s^2 + 2\zeta\omega_n s + \omega_n^2$ gives $\omega_n^2 = (1-gR_L)/(LC_{\mathrm{pv}})$
+and $2\zeta\omega_n = R_L/L - g/C_{\mathrm{pv}}$ by matching coefficients.
+Substituting $g = -1/r_d$ from~\eqref{eq:rd} into the second gives
+$-g/C_{\mathrm{pv}} = 1/(r_d C_{\mathrm{pv}})$, which is the stated form.
+
+Since $R_L$ is small, $|gR_L| \ll 1$ and $\omega_n \approx 1/\sqrt{LC_{\mathrm{pv}}}$,
+essentially independent of operating point. The damping term, by contrast, is
+inversely proportional to $r_d$, which varies by more than two orders of
+magnitude along the characteristic. This is the structural fact underlying
+Chapter~\ref{ch:control}.
+\end{proof}
+
+\begin{proposition}[Duty to inductor current, equation~\eqref{eq:Gid}]
+\label{prop:Gid}
+\[
+G_{id}(s) = \frac{V_{dc}}{L}\cdot\frac{s - g/C_{\mathrm{pv}}}{\Delta(s)},
+\]
+whose single zero lies in the left half plane, and which tends to
+$V_{dc}/(Ls)$ at frequencies well above $\omega_n$.
+\end{proposition}
+
+\begin{proof}
+Taking $C_2 = [\,0\ \ 1\,]$ and reusing the inverse from
+Proposition~\ref{prop:Gvd},
+\[
+G_{id}(s) = \frac{1}{\Delta(s)}\begin{bmatrix} \tfrac{1}{L} & s - \tfrac{g}{C_{\mathrm{pv}}}\end{bmatrix}
+\begin{bmatrix} 0 \\ \tfrac{V_{dc}}{L}\end{bmatrix}
+= \frac{V_{dc}}{L}\cdot\frac{s - g/C_{\mathrm{pv}}}{\Delta(s)} .
+\]
+The zero is at $s = g/C_{\mathrm{pv}}$, which is negative because $g < 0$, hence
+in the left half plane and the path is minimum phase.
+
+For $|s| \gg \omega_n$ the leading terms dominate: the numerator behaves as
+$(V_{dc}/L)s$ and $\Delta(s)$ as $s^2$, so
+$G_{id}(s) \to (V_{dc}/L)\,s/s^2 = V_{dc}/(Ls)$. This limit contains neither $g$
+nor $C_{\mathrm{pv}}$, which is precisely why an inner current loop closed above
+the resonance is operating-point independent.
+\end{proof}
+
+\begin{proposition}[The loop gain on power vanishes at the optimum, equation~\eqref{eq:powergain}]
+\label{prop:vanishing}
+The transfer function from duty ratio to photovoltaic power is
+$G_{pd}(s) = \dfrac{\mathrm{d}P}{\mathrm{d}V}\,G_{vd}(s)$, whose DC gain is zero
+at the maximum power point and changes sign across it.
+\end{proposition}
+
+\begin{proof}
+By Proposition~\ref{prop:linearise} the power output is the state
+$\tilde v_{\mathrm{pv}}$ scaled by $\mathrm{d}P/\mathrm{d}V$, so
+$G_{pd}(s) = (\mathrm{d}P/\mathrm{d}V)\,G_{vd}(s)$. Its DC gain is
+$(\mathrm{d}P/\mathrm{d}V)\cdot\left(-V_{dc}/(1-gR_L)\right)$ by
+Corollary~\ref{cor:nozero}.
+
+At the maximum power point $\mathrm{d}P/\mathrm{d}V = 0$ by definition, so the
+DC gain is zero. Since $P$ is continuously differentiable with an interior
+maximum, $\mathrm{d}P/\mathrm{d}V > 0$ for $V < \Vmp$ and
+$\mathrm{d}P/\mathrm{d}V < 0$ for $V > \Vmp$ in a neighbourhood of the peak,
+while the factor $-V_{dc}/(1-gR_L)$ is strictly negative throughout. The DC gain
+therefore changes sign at $\Vmp$.
+
+Consequently no linear time-invariant controller with fixed gains can regulate
+power to its maximum: at the operating point of interest the plant gain is zero,
+so the required controller gain is unbounded, and on either side the sign of the
+required feedback differs.
+\end{proof}
+
+\begin{proposition}[Outer loop plant under an ideal inner loop, equation~\eqref{eq:outerplant}]
+\label{prop:outer}
+If the inner current loop is fast enough that $i_L \approx i_L^\ast$, then
+\[
+\frac{\tilde v_{\mathrm{pv}}(s)}{\tilde\imath_L^\ast(s)} = \frac{-1}{C_{\mathrm{pv}}s + 1/r_d},
+\]
+a first-order lag with no resonance.
+\end{proposition}
+
+\begin{proof}
+The linearised input-node equation from Proposition~\ref{prop:linearise} is
+$C_{\mathrm{pv}}\dot{\tilde v} = g\tilde v - \tilde\imath$. Substituting
+$\tilde\imath = \tilde\imath^\ast$ and taking Laplace transforms,
+$(C_{\mathrm{pv}}s - g)\tilde v(s) = -\tilde\imath^\ast(s)$, so
+$\tilde v/\tilde\imath^\ast = -1/(C_{\mathrm{pv}}s - g)$. Using $g = -1/r_d$
+gives the stated form. The pole is at $-1/(r_d C_{\mathrm{pv}})$, in the left
+half plane, and the second state has been eliminated, so no resonance remains.
+
+At frequencies $\omega \gg 1/(r_d C_{\mathrm{pv}})$ the capacitive term
+dominates and the plant behaves as $-1/(C_{\mathrm{pv}}s)$, independent of the
+operating point, which is why the outer proportional gain
+$K_{p,v} = C_{\mathrm{pv}}\omega_{cv}$ needs no scheduling.
+\end{proof}
+
+\section{Controller design formulas}
+
+\begin{proposition}[Loop-shaping formulas and their feasibility limit]
+\label{prop:pi}
+Let a plant have $|G(j\omega_c)| = M$ and $\angle G(j\omega_c) = \varphi$, and
+let $C(s) = K_p(1 + \omega_z/s)$. Then unity loop gain at $\omega_c$ requires
+\[
+K_p = \frac{1}{M\sqrt{1 + (\omega_z/\omega_c)^2}},
+\]
+and the resulting phase margin is
+$\mathrm{PM} = 180^\circ + \varphi - \arctan(\omega_z/\omega_c)$. Consequently
+a proportional--integral controller can only realise phase margins in the open
+interval $(90^\circ + \varphi,\ 180^\circ + \varphi)$.
+\end{proposition}
+
+\begin{proof}
+Substituting $s = j\omega_c$,
+$C(j\omega_c) = K_p\left(1 - j\omega_z/\omega_c\right)$, whose magnitude is
+$K_p\sqrt{1 + (\omega_z/\omega_c)^2}$ and whose argument is
+$-\arctan(\omega_z/\omega_c)$. Setting $|C(j\omega_c)|\,M = 1$ and solving for
+$K_p$ gives the first result. The phase margin is
+$180^\circ + \angle C + \angle G$, which gives the second.
+
+For the range: $\omega_z/\omega_c$ ranges over $(0,\infty)$, so
+$\arctan(\omega_z/\omega_c)$ ranges over $(0^\circ, 90^\circ)$ and the
+achievable phase margin ranges over $(180^\circ + \varphi - 90^\circ,\,
+180^\circ + \varphi)$.
+
+This explains an observation made during the design of the single-loop
+controller in Chapter~\ref{ch:control}. Below its resonance the plant is nearly
+resistive, $\varphi \approx -10^\circ$, so the achievable phase margin is
+confined to roughly $(80^\circ, 170^\circ)$. A target of $60^\circ$ is not
+merely difficult but infeasible: a proportional--integral controller cannot add
+enough lag. The design was therefore parameterised by zero placement instead,
+with the achieved margin reported.
+\end{proof}
+
+\section{Converter sizing}
+
+\begin{proposition}[Inductor current ripple, equation~\eqref{eq:iripple}]
+\label{prop:iripple}
+In continuous conduction mode, neglecting $R_L$, the peak-to-peak inductor
+current ripple is $\Delta i_L = \vpv D/(f_{sw}L)$.
+\end{proposition}
+
+\begin{proof}
+While the switch is closed, for a duration $D T_{sw}$, the inductor voltage is
+$\vpv$, so $\mathrm{d}i_L/\mathrm{d}t = \vpv/L$ is constant and the current rises
+linearly by
+\[
+\Delta i_L = \frac{\vpv}{L}\, D T_{sw} = \frac{\vpv D}{f_{sw} L} .
+\]
+In periodic steady state the fall during the remainder of the period equals this
+rise, so the excursion is the peak-to-peak ripple. Continuous conduction
+requires the mean current to exceed half the ripple, $i_L > \Delta i_L/2$.
+\end{proof}
+
+\begin{proposition}[Input capacitor voltage ripple]
+\label{prop:vripple}
+The peak-to-peak photovoltaic voltage ripple is
+$\Delta \vpv = \Delta i_L/(8 f_{sw} C_{\mathrm{pv}})$.
+\end{proposition}
+
+\begin{proof}
+The array supplies the mean current, so the alternating component of the
+inductor current, a triangular wave of peak-to-peak amplitude $\Delta i_L$ and
+zero mean, must be supplied by $C_{\mathrm{pv}}$. The capacitor voltage is the
+integral of that current divided by $C_{\mathrm{pv}}$, and its peak-to-peak
+excursion equals the net charge transferred over the half period during which
+the capacitor current keeps one sign, divided by $C_{\mathrm{pv}}$.
+
+That charge is the area of the triangle formed above the zero crossing: base
+$T_{sw}/2$ and height $\Delta i_L/2$, so
+\[
+\Delta Q = \frac{1}{2}\cdot\frac{T_{sw}}{2}\cdot\frac{\Delta i_L}{2} = \frac{\Delta i_L T_{sw}}{8},
+\]
+and therefore
+$\Delta \vpv = \Delta Q / C_{\mathrm{pv}} = \Delta i_L/(8 f_{sw} C_{\mathrm{pv}})$.
+\end{proof}
+
+\section{Tracking algorithms}
+
+\begin{proposition}[Perturb and observe limit cycle, Section~\ref{sec:tradeoff}]
+\label{prop:limitcycle}
+In steady state at constant irradiance, a fixed-step perturb and observe tracker
+with step $\Delta V$ visits exactly three consecutive reference levels, so the
+peak-to-peak excursion of the reference is $2\Delta V$.
+\end{proposition}
+
+\begin{proof}
+The reference takes values on the lattice $V_k = V_0 + k\Delta V$. Let $V_m$ be
+the lattice point at which $P$ is largest; since $P$ is strictly unimodal and
+the lattice spacing is $\Delta V$, $V_m$ is unique for generic $V_0$ and
+$P(V_{m\pm1}) < P(V_m)$.
+
+Suppose the tracker is at $V_m$ moving upward. It steps to $V_{m+1}$ and
+observes $\Delta P < 0$, so it reverses. It steps down to $V_m$ and observes
+$\Delta P > 0$, so it keeps direction. It steps down to $V_{m-1}$ and observes
+$\Delta P < 0$, so it reverses. It steps up to $V_m$ and observes
+$\Delta P > 0$, so it keeps direction, and steps up to $V_{m+1}$, closing the
+cycle.
+
+The orbit is therefore
+$V_m \to V_{m+1} \to V_m \to V_{m-1} \to V_m \to V_{m+1} \to \cdots$, a
+period-four cycle visiting the three levels $\{V_{m-1}, V_m, V_{m+1}\}$. The
+extreme values differ by $2\Delta V$.
+
+Measurements confirm this exactly: steps of \SI{0.5}{}, \SI{1.0}{}, \SI{1.5}{},
+\SI{2.0}{}, \SI{3.0}{}, \SI{4.0}{} and \SI{6.0}{\volt} produced excursions of
+\SI{1.00}{}, \SI{1.99}{}, \SI{2.99}{}, \SI{3.98}{}, \SI{5.96}{}, \SI{7.98}{} and
+\SI{11.95}{\volt}. The argument requires the voltage loop to settle within one
+tracker period, which Chapter~\ref{ch:control} establishes.
+\end{proof}
+
+\begin{proposition}[Equivalence of incremental conductance and perturb and observe]
+\label{prop:incequiv}
+The incremental conductance residual $r = \Delta I/\Delta V + I/V$ satisfies
+$\mathrm{sign}(r) = \mathrm{sign}(\mathrm{d}P/\mathrm{d}V)$, so with the same
+step and sample period the two algorithms generate the same sequence of
+decisions.
+\end{proposition}
+
+\begin{proof}
+In the limit of small perturbations $\Delta I/\Delta V \to \mathrm{d}I/\mathrm{d}V$, so
+\[
+r = \frac{\mathrm{d}I}{\mathrm{d}V} + \frac{I}{V}
+  = \frac{1}{V}\left(V\frac{\mathrm{d}I}{\mathrm{d}V} + I\right)
+  = \frac{1}{V}\,\frac{\mathrm{d}P}{\mathrm{d}V}
+\]
+using~\eqref{eq:dpdv}. Since $V > 0$ throughout operation, the sign of $r$
+equals the sign of $\mathrm{d}P/\mathrm{d}V$. Perturb and observe infers the
+same sign from $\mathrm{sign}(\Delta P/\Delta V)$. Both therefore move the
+reference in the same direction at every step, and the trajectories coincide.
+
+This accounts for the empirical finding of Chapter~\ref{ch:benchmark} that the
+two agree to within \SI{0.03}{\percent} at every ramp rate. The methods diverge
+only when the small-perturbation limit fails or when measurement noise corrupts
+the two estimators differently, neither of which is present in this idealised
+study.
+\end{proof}
+
+\begin{proposition}[Extremum seeking recovers the gradient, Section~\ref{sec:tradeoff}]
+\label{prop:esc}
+Let $v(t) = \hat v + A\sin\omega t$ with $\hat v$ slowly varying. Then the
+low-pass filtered product of the washed-out power and $\sin\omega t$ converges
+to $\tfrac{A}{2}\,P'(\hat v)$.
+\end{proposition}
+
+\begin{proof}
+Expanding $P$ about $\hat v$ to second order,
+\[
+P(v) \approx P(\hat v) + P'(\hat v)A\sin\omega t + \tfrac{1}{2}P''(\hat v)A^2\sin^2\!\omega t .
+\]
+Using $\sin^2\omega t = \tfrac{1}{2}(1 - \cos 2\omega t)$, the constant terms are
+$P(\hat v) + \tfrac{1}{4}P''A^2$, which the washout high-pass filter removes,
+leaving
+\[
+\xi(t) \approx P'(\hat v)A\sin\omega t - \tfrac{1}{4}P''(\hat v)A^2\cos 2\omega t .
+\]
+Multiplying by $\sin\omega t$ and applying the product identities
+$\sin^2\omega t = \tfrac{1}{2}(1-\cos2\omega t)$ and
+$\cos 2\omega t \sin\omega t = \tfrac{1}{2}(\sin 3\omega t - \sin\omega t)$,
+\[
+\xi(t)\sin\omega t \approx \frac{A}{2}P'(\hat v)
+- \frac{A}{2}P'(\hat v)\cos 2\omega t
+- \frac{A^2}{8}P''(\hat v)\left(\sin 3\omega t - \sin\omega t\right).
+\]
+Every term other than the first oscillates at $\omega$, $2\omega$ or $3\omega$
+with zero mean. A low-pass filter with corner well below $\omega$ therefore
+returns $\tfrac{A}{2}P'(\hat v)$.
+
+Feeding this into an integrator, $\dot{\hat v} = K\hat\gamma$, gives
+$\dot{\hat v} \approx \tfrac{KA}{2}P'(\hat v)$, which is gradient ascent on $P$
+and has $\hat v = \Vmp$ as its unique locally asymptotically stable equilibrium,
+since $P'' < 0$ there. Rigorous justification, which requires averaging and
+singular perturbation arguments and a sufficiently small $K$, is given by
+Krsti\'{c} and Wang~\cite{krstic}.
+
+The upper limit on $K$ is visible experimentally in Table~\ref{tab:escgain}:
+performance improves up to $K = 20$ and the estimator loop destabilises beyond
+$K \approx 200$.
+\end{proof}
+
+\begin{proposition}[Why extremum seeking is insensitive to irradiance ramps]
+\label{prop:escramp}
+A linear irradiance ramp adds a component to $P(t)$ that is rejected by the
+washout filter and contributes no mean term to the demodulated signal.
+\end{proposition}
+
+\begin{proof}
+Under a ramp of rate $\dot G$, the available power acquires a slowly varying
+component $P_{\mathrm{ramp}}(t)$ whose spectral content lies near zero frequency,
+far below $\omega$. The washout high-pass filter, with corner
+$\omega_h \ll \omega$, attenuates it by a factor of order $\omega_h/\omega$
+before demodulation.
+
+Whatever residue survives is multiplied by $\sin\omega t$. Since the residue is
+essentially constant over one dither period, its product with $\sin\omega t$ has
+zero mean over that period and is removed by the subsequent low-pass filter.
+
+The gradient estimate is therefore unbiased by the ramp to first order. This is
+the frequency separation between probe and disturbance that
+Chapter~\ref{ch:benchmark} observes as a flat efficiency of
+\SI{99.85}{\percent} across an eightfold change in ramp rate.
+
+The contrast with hill climbing is instructive. A perturb and observe tracker
+samples power at two instants separated by $T_{\mathrm{mppt}}$ and attributes the
+whole difference to its own perturbation. Under a ramp the irradiance
+contributes $\dot G\,T_{\mathrm{mppt}}\,\partial P/\partial G$ to that
+difference, and when this exceeds the contribution of the perturbation itself the
+inferred sign is wrong. That is the drift mechanism of
+Section~\ref{sec:drift}, and no amount of tuning removes it, because it is a
+failure of the attribution assumption rather than of the search rule.
+\end{proof}

@@ -1,0 +1,250 @@
+\chapter{Methodology}
+\label{ch:method}
+
+\section{Research design}
+
+The project is a modelling and simulation study whose organising principle is
+\term{staged verification}: the work proceeds as a chain from manufacturer
+datasheet to switched circuit, and no link in the chain is used until it has
+been checked against something that does not share its assumptions.
+
+That principle is a response to the specific hazard of this kind of work. A
+simulation study rarely fails by crashing. It fails by producing numbers that
+are plausible, internally consistent and wrong, and such failures are invisible
+unless each stage is independently validated. Every methodological choice below
+follows from taking that hazard seriously.
+
+\begin{table}[htbp]
+\centering
+\caption{The verification chain: what each stage is checked against.}
+\label{tab:verifychain}
+\begin{tabular}{@{}L{0.27\textwidth}L{0.34\textwidth}L{0.29\textwidth}@{}}
+\toprule
+\textbf{Stage} & \textbf{Checked against} & \textbf{Criterion met} \\
+\midrule
+Parameter identification & the manufacturer datasheet, all five constraints & residual \num{1.4e-14}\,\si{\percent} \\
+Analytic $\mathrm{d}I/\mathrm{d}V$ & central differences of the solved current & relative error $<\num{1e-5}$ \\
+Maximum power point solver & stationarity of the analytic gradient & $|\mathrm{d}P/\mathrm{d}V| < \num{1e-6}$ \\
+Converter linearisation & central differences of the nonlinear vector field & relative error $<\num{1e-9}$ \\
+Modal formulas & eigenvalues of the state matrix & agreement to \num{1e-8} \\
+Cascade design & margins recomputed on the full-order plant & PM $>\SI{85}{\degree}$ \\
+Reference tracking & the analytic I--V curve at the settled point & error $<\SI{0.05}{\percent}$ \\
+Averaged converter model & a switched circuit simulation & voltage \SI{0.23}{\percent}, power \SI{0.005}{\percent} \\
+Integrator step size & the same run at half the step & final voltage within \SI{0.5}{\volt} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Choice of modelling approach}
+
+\subsection{Why a physics-based model rather than a curve fit}
+
+The photovoltaic array could have been represented by a lookup table or a
+polynomial fit to published curves. A physics-based single-diode model was
+chosen for three reasons. It extrapolates correctly to irradiance and
+temperature combinations not present in the datasheet, which a fit cannot. It
+yields analytic derivatives, which the control analysis needs and which
+differentiating a fitted curve would produce only noisily. And its parameters
+are physically interpretable, so an implausible result, such as an ideality
+factor of \num{3}, is recognisable as an error rather than accepted as a number.
+
+\subsection{Why the De Soto closure}
+
+Section~\ref{sec:gap} identified the choice between fixing the ideality factor
+and solving a determined system. The determined system was chosen because it
+uses the temperature coefficient the datasheet already publishes, leaves no
+parameter to the modeller's judgement, and makes the ideality factor an output
+that can be checked against physical expectation. The cost is a badly scaled
+nonlinear solve, addressed in Section~\ref{sec:numerics}.
+
+\subsection{Why both an averaged and a switched converter model}
+
+The two models answer different questions and neither alone is sufficient.
+
+The averaged model is continuous and low-order, so it can be linearised
+analytically, swept over an operating envelope in seconds, and simulated for
+tens of seconds of closed-loop operation. Frequency-domain analysis is only
+possible on it. But it assumes that switching can be replaced by its average,
+which is exactly the assumption a control study should not simply accept.
+
+The switched model makes no such assumption, at the cost of being far slower and
+not admitting linear analysis. Its role is therefore not to produce the results
+but to \emph{audit} them. Using both, and cross-checking, is what allows the
+frequency-domain conclusions to be stated with confidence.
+
+\subsection{Why the DC bus is treated as stiff}
+
+In a real string inverter the grid-side stage regulates the DC bus, and its
+control bandwidth is far below the converter loops studied here. Modelling the
+bus as an ideal voltage sink isolates the MPPT control problem from the grid-side
+problem, which is a separate design task. The limitation this imposes is stated
+in Chapter~\ref{ch:physical}.
+
+\section{Choice of controlled variable and architecture}
+
+Two decisions were made on analytical grounds rather than convention, and both
+are justified where they are made rather than asserted here.
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Photovoltaic voltage is the controlled variable}, because
+        $\Vmp$ is nearly invariant with irradiance
+        (Chapter~\ref{ch:pvmodel}) and because the duty-to-input-voltage
+        transfer has no right half plane zero
+        (Section~\ref{sec:nozero}), unlike the duty-to-output-voltage transfer.
+  \item \textbf{The architecture is cascaded}, because the inner current loop
+        sees an operating-point-independent plant while a single voltage loop
+        does not (Chapter~\ref{ch:control}). The single-loop design was
+        implemented and analysed as well, so that the comparison is quantitative
+        rather than asserted.
+\end{enumerate}
+
+The design procedure at each layer was loop shaping: choose a crossover
+frequency from the physical constraints, place the integral zero below it, and
+solve for the proportional gain that makes the loop gain unity at crossover.
+Crossovers were chosen by timescale separation, each layer roughly eight times
+slower than the one below, with the innermost an order of magnitude below the
+switching frequency.
+
+Critically, the gains were derived from \emph{simplified} models, the
+high-frequency limit for the inner loop and the ideal-inner-loop limit for the
+outer, and then \emph{verified on the exact full-order plant}. Design on a
+simplified model is legitimate only if the simplification is afterwards
+discharged.
+
+\section{Experimental design for the algorithm comparison}
+
+\subsection{Controlling the confounds}
+
+Chapter~\ref{ch:litreview} noted that published MPPT comparisons are often
+confounded by unequal implementations. Four measures were taken so that measured
+differences are attributable to the algorithms.
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{A common interface.} All trackers derive from one abstract class
+        that owns reference clamping, limit handling and update timing.
+        Subclasses supply only the update rule.
+  \item \textbf{Identical plant and inner loops.} Every tracker drives the same
+        converter with the same cascaded controller and the same gains.
+  \item \textbf{Identical sample period.} All hill-climbers run at
+        \SI{20}{\milli\second}. Extremum seeking necessarily runs faster,
+        because it must resolve a \SI{25}{\hertz} dither; that difference is
+        intrinsic to the method and is stated rather than hidden.
+  \item \textbf{Identical scoring.} One efficiency routine, one exact
+        maximum-power reference, one exclusion window for the start-up
+        transient.
+\end{itemize}
+
+\subsection{Choice of test signals}
+
+Three signal classes are used, in increasing order of severity.
+
+\begin{description}[leftmargin=0pt, style=unboxed]
+\item[Constant irradiance.] Isolates steady-state cost: limit cycle, dither loss
+  and bias. Nothing else contributes.
+\item[Step change.] The conventional benchmark. Tests recovery from a sudden
+  displacement of the optimum, but leaves irradiance constant on both sides of
+  the step, so it does not stress the attribution assumption a hill-climber
+  makes.
+\item[Trapezoidal ramps.] EN 50530-style profiles at four ramp rates. These
+  stress exactly the assumption that a step test leaves untouched, and are the
+  reason the ranking of the trackers changes between
+  Chapter~\ref{ch:mppt} and Chapter~\ref{ch:benchmark}.
+\end{description}
+
+Including all three was a deliberate choice: the disagreement between them is
+itself a finding, and a study using only one class would have reported a
+different and less reliable conclusion.
+
+\subsection{Parameter selection within each algorithm}
+
+Where an algorithm has a free parameter, it was chosen by sweep rather than by
+assertion, and the sweep is reported. The perturb and observe step size was
+swept over seven values with acquisition time and steady-state efficiency
+measured separately, so that the trade-off is exhibited rather than a single
+tuned point being presented. The extremum seeking adaptation gain was swept over
+six values, revealing the stability limit predicted by averaging theory.
+
+\subsection{The efficiency metric}
+
+Dynamic MPPT efficiency, equation~\eqref{eq:eta}, was adopted because it is the
+standard figure of merit and because it integrates rather than samples, so it
+captures both lag and ripple in one number. It requires the true available power
+at every instant, which is why the exact maximum power point solver of
+Chapter~\ref{ch:pvmodel} had to be exact rather than approximate: any error in
+the denominator would appear as a spurious difference between trackers.
+
+Worst instantaneous power deficit is reported alongside it, because an
+integrated metric can conceal a large but brief shortfall, and
+Chapter~\ref{ch:benchmark} contains exactly such a case.
+
+\section{Numerical methods and their justification}
+\label{sec:numerics}
+
+\begin{table}[htbp]
+\centering
+\caption{Numerical choices and the reason for each.}
+\label{tab:numchoices}
+\begin{tabular}{@{}L{0.30\textwidth}L{0.62\textwidth}@{}}
+\toprule
+\textbf{Choice} & \textbf{Reason} \\
+\midrule
+Log parameterisation of $I_0$, $R_s$, $R_{sh}$ & keeps them positive by construction and conditions a system whose unknowns span ten orders of magnitude \\
+Residual scaling by $\Isc$ and $|\beta_{Voc}|$ & makes the five residuals comparable so the trust region is meaningful \\
+Multi-start over six ideality seeds & removes dependence on the initial guess \\
+Damped Newton with backtracking for the diode equation & the residual is monotone and concave, so Newton converges from $I = 0$; backtracking covers excursions beyond $\Voc$ \\
+Warm starting from the previous sample & reduces Newton to two or three iterations, which is what makes second-scale closed-loop simulation feasible \\
+Bracketed root solve for $\Voc$ and the MPP & guarantees the correct root rather than the nearest one \\
+Fixed-step RK4 at $1/(2f_{sw})$ & deterministic sampling instants for the discrete controllers; convergence verified by halving \\
+Interpolated $\Pmp(G)$ for scoring & exact solve at every one of \num{500000} samples would be prohibitive; the function is smooth so interpolation error is negligible \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Reproducibility}
+
+Three practices support reproducibility, described in full in
+Chapter~\ref{ch:software}.
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{A single configuration source.} Array topology, component values
+        and crossover frequencies are defined in one function that every script
+        consumes, so no figure can silently disagree with another.
+  \item \textbf{The Simulink model is built by a script.} A binary model file
+        cannot be reviewed or diffed; a builder script can, and it regenerates
+        the model from source on demand.
+  \item \textbf{One command runs everything.} \texttt{run\_all} regenerates
+        every figure and table in this report and runs the test suite. Every
+        number quoted in this report came from a single execution of that
+        pipeline.
+\end{enumerate}
+
+Verification is automated as 27 unit tests. Several encode the report's
+conclusions as executable assertions rather than merely checking mechanics: that
+the duty-to-power gain vanishes at the maximum power point, that the cascade
+holds above \SI{45}{\degree} of phase margin while the single-loop design falls
+below \SI{10}{\degree}, and that the perturb and observe limit cycle equals twice
+the step. A future change that quietly invalidates an argument in this report
+fails a test.
+
+\section{Scope boundaries}
+
+The following were excluded deliberately, and the reasons are given so that the
+boundaries are not mistaken for oversights.
+
+\begin{table}[htbp]
+\centering
+\caption{Deliberate exclusions.}
+\label{tab:exclusions}
+\begin{tabular}{@{}L{0.30\textwidth}L{0.62\textwidth}@{}}
+\toprule
+\textbf{Excluded} & \textbf{Reason} \\
+\midrule
+Partial shading and global search & changes the problem from local tracking to global optimisation; a separate study \\
+Sensor noise and quantisation & would strengthen the case for incremental conductance; omitting it is stated as the reason no advantage is observed \\
+Grid-side inverter stage & regulates the bus far more slowly than the loops studied; separable by timescale \\
+Switching transitions, parasitics, electromagnetic interference & irrelevant to control bandwidth, and modelling them would require device-level data \\
+Thermal dynamics of the module & cell temperature varies on a timescale of minutes, far slower than any loop here \\
+Hardware construction & outside the time available; specified instead in Chapter~\ref{ch:physical} with quantitative acceptance criteria \\
+\bottomrule
+\end{tabular}
+\end{table}

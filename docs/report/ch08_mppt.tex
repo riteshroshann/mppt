@@ -13,7 +13,7 @@ differ only in how they obtain that estimate.
 \centering
 \caption{The three trackers viewed as gradient estimators.}
 \label{tab:estimators}
-\begin{tabular}{@{}p{0.22\textwidth}p{0.40\textwidth}p{0.28\textwidth}@{}}
+\begin{tabular}{@{}L{0.22\textwidth}L{0.40\textwidth}L{0.28\textwidth}@{}}
 \toprule
 \textbf{Algorithm} & \textbf{How it estimates the gradient} & \textbf{Cost} \\
 \midrule
@@ -205,7 +205,7 @@ adopted as a reasonable compromise and used for all comparisons.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{s04_mppt_comparison.png}
+\bigfig{s04_mppt_comparison.png}
 \caption[MPPT algorithm comparison]{Algorithm comparison through a \SI{1000}{} to \SI{500}{\watt\per\square\metre} irradiance step. Top left, voltage tracking; top right, power recovery; bottom left, steady-state behaviour showing the limit cycles and the extremum seeking dither; bottom right, the P\&O speed against accuracy frontier with each point labelled by its step size.}
 \label{fig:mpptcompare}
 \end{figure}

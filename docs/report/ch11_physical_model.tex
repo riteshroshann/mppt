@@ -65,7 +65,7 @@ be dropped into any Simscape circuit.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{s07_simulink_model.png}
+\bigfig{s07_simulink_model.png}
 \caption[Simulink switched model]{The switched Simulink and Simscape model. Left, the photovoltaic array component driven by irradiance and cell temperature. Centre, the boost power stage with current and voltage sensing. Bottom, the discrete cascaded controller, the one-sample computation delay, the sawtooth carrier and the pulse width modulation comparator.}
 \label{fig:slxmodel}
 \end{figure}
@@ -151,7 +151,7 @@ Table~\ref{tab:stepcompare}.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{s06_switched_validation.png}
+\bigfig{s06_switched_validation.png}
 \caption[Switched circuit validation]{Switched circuit results. Top left and top right, the \SI{20}{\kilo\hertz} ripple in inductor current and PV voltage, with the averaged model prediction as a dashed line. Bottom left, closed-loop tracking with the staircase perturb and observe reference visible. Bottom right, harvested power against the available maximum through the irradiance step.}
 \label{fig:swvalid}
 \end{figure}
@@ -168,7 +168,7 @@ engineering margin.
 \centering
 \caption{Worst-case electrical stresses from the simulated envelope.}
 \label{tab:stress}
-\begin{tabular}{@{}p{0.40\textwidth}rl@{}}
+\begin{tabular}{@{}L{0.40\textwidth}rl@{}}
 \toprule
 \textbf{Quantity} & \textbf{Value} & \textbf{Origin} \\
 \midrule
@@ -195,7 +195,7 @@ STC number.
 \centering
 \caption{Proposed component selection with justification.}
 \label{tab:bom}
-\begin{tabular}{@{}p{0.20\textwidth}p{0.30\textwidth}p{0.42\textwidth}@{}}
+\begin{tabular}{@{}L{0.20\textwidth}L{0.30\textwidth}L{0.42\textwidth}@{}}
 \toprule
 \textbf{Item} & \textbf{Specification} & \textbf{Reason} \\
 \midrule
@@ -270,7 +270,7 @@ the semiconductors.
 \centering
 \caption{Proposed hardware build sequence, each stage gated by a measurable outcome.}
 \label{tab:buildplan}
-\begin{tabular}{@{}rp{0.32\textwidth}p{0.46\textwidth}@{}}
+\begin{tabular}{@{}rL{0.32\textwidth}L{0.46\textwidth}@{}}
 \toprule
 \textbf{Stage} & \textbf{Activity} & \textbf{Exit criterion} \\
 \midrule

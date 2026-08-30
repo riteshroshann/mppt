@@ -6,7 +6,7 @@
 \let\Bbbk\relax
 \usepackage{amssymb}
 \usepackage{newtxtext,newtxmath}
-\usepackage[a4paper,top=1.1in,bottom=1.1in,left=1.25in,right=1.1in]{geometry}
+\usepackage[a4paper,top=1.0in,bottom=1.0in,left=1.15in,right=1.0in]{geometry}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{longtable}
@@ -14,11 +14,14 @@
 \usepackage{siunitx}
 \usepackage{xcolor}
 \usepackage{titlesec}
-\usepackage[font=small,labelfont=bf,width=0.92\textwidth]{caption}
+\usepackage[font=small,labelfont=bf,width=0.95\textwidth]{caption}
 \usepackage{enumitem}
 \usepackage{tocloft}
 \usepackage{microtype}
 \usepackage{emptypage}
+\usepackage{fancyhdr}
+\let\openbox\relax
+\usepackage{amsthm}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,fit,backgrounds}
 \usepackage[american,siunitx]{circuitikz}
@@ -44,13 +47,41 @@
 \titlespacing*{\section}{0pt}{16pt}{6pt}
 \titlespacing*{\subsection}{0pt}{12pt}{4pt}
 
-\pagestyle{empty}
-\makeatletter\let\ps@plain\ps@empty\makeatother
-\linespread{1.06}\selectfont
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancyfoot[C]{\small\thepage}
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \renewcommand{\headrulewidth}{0pt}%
+  \renewcommand{\footrulewidth}{0pt}%
+  \fancyfoot[C]{\small\thepage}}
+\linespread{1.05}\selectfont
 
 \setlength{\parskip}{0.45em}
 \setlength{\parindent}{0pt}
-\renewcommand{\arraystretch}{1.15}
+\setlength{\emergencystretch}{2.5em}
+\raggedbottom
+
+\renewcommand{\topfraction}{0.88}
+\renewcommand{\bottomfraction}{0.7}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.75}
+\setlength{\intextsep}{16pt plus 3pt minus 3pt}
+\setlength{\textfloatsep}{18pt plus 3pt minus 3pt}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+\newcommand{\bigfig}[2][1.16]{\makebox[\textwidth][c]{\includegraphics[width=#1\textwidth]{#2}}}
+
+\theoremstyle{definition}
+\newtheorem{proposition}{Proposition}[chapter]
+\newtheorem{lemma}[proposition]{Lemma}
+\newtheorem{corollary}[proposition]{Corollary}
+
+\renewcommand{\arraystretch}{1.22}
 \sisetup{per-mode=symbol, detect-weight=true}
 \DeclareSIUnit\ohm{\ensuremath{\Omega}}
 \DeclareSIUnit\celsius{\ensuremath{^{\circ}}C}
@@ -79,7 +110,7 @@
 
 \IfFileExists{logo.png}{%
   \vspace*{0.35in}
-  \includegraphics[width=0.52\textwidth]{logo.png}\par
+  \includegraphics[width=0.60\textwidth]{logo.png}\par
   \vspace{0.45in}
 }{%
   \vspace*{1.2in}
@@ -110,7 +141,7 @@
 
 \pagenumbering{roman}
 \setcounter{page}{1}
-\pagestyle{empty}
+\pagestyle{fancy}
 
 \tableofcontents
 \clearpage
@@ -126,18 +157,21 @@
 \setcounter{page}{1}
 
 \input{ch01_project_statement}
-\input{ch02_theory}
-\input{ch03_pv_model}
-\input{ch04_converter}
-\input{ch05_control}
-\input{ch06_mppt}
-\input{ch07_benchmark}
-\input{ch08_software_workflow}
-\input{ch09_physical_model}
-\input{ch10_conclusions}
+\input{ch02_litreview}
+\input{ch03_theory}
+\input{ch04_methodology}
+\input{ch05_pv_model}
+\input{ch06_converter}
+\input{ch07_control}
+\input{ch08_mppt}
+\input{ch09_benchmark}
+\input{ch10_software_workflow}
+\input{ch11_physical_model}
+\input{ch12_conclusions}
 
 \appendix
 \input{appendix}
+\input{appendix_proofs}
 
 \begin{thebibliography}{99}
 \addcontentsline{toc}{chapter}{Bibliography}
@@ -163,6 +197,22 @@
 \bibitem{en50530} CENELEC, \emph{EN 50530: Overall Efficiency of Grid Connected Photovoltaic Inverters}, 2010.
 
 \bibitem{kyocera} Kyocera Corporation, \emph{KC200GT High Efficiency Multicrystal Photovoltaic Module Datasheet}.
+
+\bibitem{femia_book} N.~Femia, G.~Petrone, G.~Spagnuolo and M.~Vitelli, \emph{Power Electronics and Control Techniques for Maximum Energy Harvesting in Photovoltaic Systems}. CRC Press, 2013.
+
+\bibitem{sera} D.~Sera, L.~Mathe, T.~Kerekes, S.~V.~Spataru and R.~Teodorescu, ``On the perturb-and-observe and incremental conductance MPPT methods for PV systems,'' \emph{IEEE Journal of Photovoltaics}, vol.~3, no.~3, pp.~1070--1078, 2013.
+
+\bibitem{elgendy} M.~A.~Elgendy, B.~Zahawi and D.~J.~Atkinson, ``Assessment of perturb and observe MPPT algorithm implementation techniques for PV pumping applications,'' \emph{IEEE Transactions on Sustainable Energy}, vol.~3, no.~1, pp.~21--33, 2012.
+
+\bibitem{rcc} T.~Esram, J.~W.~Kimball, P.~T.~Krein, P.~L.~Chapman and P.~Midya, ``Dynamic maximum power point tracking of photovoltaic arrays using ripple correlation control,'' \emph{IEEE Transactions on Power Electronics}, vol.~21, no.~5, pp.~1282--1291, 2006.
+
+\bibitem{ariyur} K.~B.~Ariyur and M.~Krsti\'{c}, \emph{Real-Time Optimization by Extremum-Seeking Control}. Wiley, 2003.
+
+\bibitem{kjaer} S.~B.~Kjaer, J.~K.~Pedersen and F.~Blaabjerg, ``A review of single-phase grid-connected inverters for photovoltaic modules,'' \emph{IEEE Transactions on Industry Applications}, vol.~41, no.~5, pp.~1292--1306, 2005.
+
+\bibitem{bratcu} A.~I.~Bratcu, I.~Munteanu, S.~Bacha, D.~Picault and B.~Raison, ``Cascaded DC--DC converter photovoltaic systems: power optimization issues,'' \emph{IEEE Transactions on Industrial Electronics}, vol.~58, no.~2, pp.~403--411, 2011.
+
+\bibitem{nguyen} T.~L.~Nguyen and K.-S.~Low, ``A global maximum power point tracking scheme employing DIRECT search algorithm for photovoltaic systems,'' \emph{IEEE Transactions on Industrial Electronics}, vol.~57, no.~10, pp.~3456--3467, 2010.
 
 \bibitem{astrom} K.~J.~{\AA}str\"{o}m and R.~M.~Murray, \emph{Feedback Systems: An Introduction for Scientists and Engineers}, 2nd ed. Princeton University Press, 2021.
 

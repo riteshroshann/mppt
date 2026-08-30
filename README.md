@@ -34,7 +34,7 @@ simulink/
   run_switched_validation.m switched vs averaged cross-check, closed-loop run
 results/figures             generated figures
 results/data                generated .mat results
-docs/                       LaTeX report and rendered PDF
+docs/report                 LaTeX source + Solar_MPPT_Control_Report.pdf
 ```
 
 ## Requirements
@@ -70,6 +70,13 @@ cd simulink
 run_switched_validation      % builds the .slx, validates, runs closed loop
 export_model_diagram         % block diagram image
 ```
+
+## Report
+
+`docs/report/Solar_MPPT_Control_Report.pdf` is a 93-page report covering the
+project statement, a literature review, theory, methodology, all modelling and
+control results, the physical model with hardware requirements, and an appendix
+of 16 propositions with full derivations. Rebuild it with `docs/report/build.sh`.
 
 ## Headline results
 
