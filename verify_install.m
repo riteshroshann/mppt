@@ -61,11 +61,11 @@ function ok = verify_install()
     try
         old = cd(fullfile(here, "simulink"));
         c = onCleanup(@() cd(old));
-        if exist("pvsrc_lib.slx", "file") ~= 2
+        if ~isfile("pvsrc_lib.slx")
             ssc_build("pvsrc");
         end
         checks = add(checks, "Simscape PV component", ...
-            exist("pvsrc_lib.slx", "file") == 2, "pvsrc_lib.slx present");
+            isfile("pvsrc_lib.slx"), "pvsrc_lib.slx built from pv_module.ssc");
         clear c
     catch e
         checks = add(checks, "Simscape PV component", false, e.message);

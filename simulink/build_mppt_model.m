@@ -7,7 +7,7 @@ function mdl = build_mppt_model(opts)
     end
 
     here = fileparts(mfilename('fullpath'));
-    if exist(fullfile(here, 'pvsrc_lib.slx'), 'file') ~= 2
+    if ~isfile(fullfile(here, 'pvsrc_lib.slx'))
         old = cd(here);
         cleanup = onCleanup(@() cd(old));
         ssc_build('pvsrc');

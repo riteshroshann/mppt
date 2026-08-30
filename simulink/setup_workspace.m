@@ -77,7 +77,7 @@ function setup_workspace(scenario, opts)
 
     mdl = "mppt_boost_switched";
     slx = fullfile(here, mdl + ".slx");
-    if exist(slx, "file") ~= 2
+    if ~isfile(slx)
         fprintf("Model not found, building it from build_mppt_model.m ...\n");
         build_mppt_model(Save = true);
     end
