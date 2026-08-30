@@ -48,3 +48,4 @@ docs/**/*.toc
 docs/**/*.lof
 docs/**/*.lot
 docs/**/*.out
+docs/**/*.log
