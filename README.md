@@ -44,12 +44,22 @@ Toolbox. No Simscape Electrical is required: the PV array is implemented as a
 custom Simscape component and the converter uses Foundation Library electrical
 blocks only.
 
+## Opening the project
+
+Open **`SolarMPPT.prj`** in MATLAB, or double-click it in the file explorer.
+That sets every path, runs the startup file and shows the whole folder tree in
+the Project panel. Nothing else to configure.
+
+First thing to run on a new machine:
+
+```matlab
+verify_install               % checks toolboxes and exercises the whole stack
+```
+
 ## Running it
 
 ```matlab
-cd matlab
-startup_mpptlab
-run_all                      % everything, roughly 12 minutes
+run_all                      % everything, roughly 11 minutes
 ```
 
 Individual pieces:
@@ -66,10 +76,15 @@ runtests('tests')            % 27 unit tests
 Switched circuit model:
 
 ```matlab
-cd simulink
-run_switched_validation      % builds the .slx, validates, runs closed loop
+setup_workspace("step")      % loads parameters and opens the model, ready to Run
+                             % scenarios: step, ramp, fixedduty, constant
+plot_last_run                % chart the signals after pressing Run
+run_switched_validation      % scripted: builds, validates against the averaged model
 export_model_diagram         % block diagram image
 ```
+
+The model reads its parameters from the base workspace, so run
+`setup_workspace` before pressing the green Run button.
 
 ## Report
 
