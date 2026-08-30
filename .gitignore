@@ -1,0 +1,27 @@
+# MATLAB
+*.asv
+*.autosave
+*.mex*
+slprj/
+sccprj/
+codegen/
+*.slxc
+*.mdl.r*
+*.slx.r*
+octave-workspace
+
+# Simulink cache / build
+*.mexw64
+*.mexa64
+*.mexmaci64
+**/slprj/**
+
+# Generated results (keep the folders, drop bulky artifacts)
+results/data/*.mat
+results/figures/*.png
+results/figures/*.pdf
+!results/**/.gitkeep
+
+# OS
+Thumbs.db
+.DS_Store
