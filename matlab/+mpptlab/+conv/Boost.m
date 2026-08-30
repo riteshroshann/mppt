@@ -31,19 +31,20 @@ classdef Boost < handle
             end
         end
 
-        function dx = derivatives(obj, x, d, pv, p)
+        function [dx, ipv] = derivatives(obj, x, d, pv, p, Iguess)
             arguments
                 obj
                 x  (2,1) double
                 d  (1,1) double
                 pv (1,1) mpptlab.pv.PVArray
                 p  struct = pv.params()
+                Iguess double = []
             end
             vpv = max(x(1), 0);
             iL  = x(2);
             d   = min(max(d, obj.dMin), obj.dMax);
 
-            ipv = pv.current(vpv, p);
+            ipv = pv.current(vpv, p, Iguess);
             dx  = [ (ipv - iL) / obj.Cpv
                     (vpv - (1 - d) * obj.Vdc - iL * obj.RL) / obj.L ];
         end

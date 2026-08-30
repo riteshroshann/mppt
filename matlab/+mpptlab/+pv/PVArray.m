@@ -70,13 +70,18 @@ classdef PVArray < handle
             p.Rsh = m.Rsh * obj.NsMod / obj.NpStr;
         end
 
-        function I = current(obj, V, p)
+        function I = current(obj, V, p, Iguess)
             arguments
                 obj
                 V double
                 p struct = obj.params()
+                Iguess double = []
             end
-            I = zeros(size(V));
+            if isempty(Iguess)
+                I = zeros(size(V));
+            else
+                I = Iguess .* ones(size(V));
+            end
             [f, df] = obj.residual(V, I, p);
             maxStep = 2 * p.Iph + 1;
             tol     = 1e-11 * max(1, p.Iph);

@@ -25,3 +25,19 @@ results/figures/*.pdf
 # OS
 Thumbs.db
 .DS_Store
+
+# Simscape generated library and build artifacts
+simulink/pvsrc_lib.slx
+simulink/+pvsrc/.subsystem_cache/
+simulink/*.slxc
+
+# LaTeX build artifacts
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.toc
+docs/*.lof
+docs/*.lot
+docs/*.fls
+docs/*.fdb_latexmk
+docs/*.synctex.gz

@@ -1,0 +1,53 @@
+component pv_module
+
+nodes
+    p = foundation.electrical.electrical; % +:left
+    n = foundation.electrical.electrical; % -:right
+end
+
+inputs
+    G  = { 1000,   'W/m^2' }; % G:left
+    Tc = { 298.15, 'K'     }; % T:left
+end
+
+parameters
+    IphRef   = { 8.2271,     'A'   };
+    I0Ref    = { 4.3964e-10, 'A'   };
+    RsRef    = { 0.33501,    'Ohm' };
+    RshRef   = { 160.6015,   'Ohm' };
+    aRef     = { 1.39246,    'V'   };
+    alphaIsc = { 3.18e-3,    'A/K' };
+    EgRef    = { 1.121,      '1'   };
+    NsMod    = { 6,          '1'   };
+    NpStr    = { 2,          '1'   };
+end
+
+variables
+    i = { 0, 'A' };
+    v = { 0, 'V' };
+end
+
+branches
+    i : n.i -> p.i;
+end
+
+equations
+    let
+        Gref = { 1000,           'W/m^2' };
+        Tref = { 298.15,         'K'     };
+        kEV  = { 8.617333262e-5, '1/K'   };
+        Geff = G + { 1e-6, 'W/m^2' };
+        aa   = aRef * (Tc/Tref) * NsMod;
+        Iph  = (Geff/Gref) * (IphRef + alphaIsc*(Tc - Tref)) * NpStr;
+        Eg   = EgRef * (1 - 2.677e-4*(Tc - Tref)/{1, 'K'});
+        I0   = I0Ref * (Tc/Tref)^3 * exp(EgRef/(kEV*Tref) - Eg/(kEV*Tc)) * NpStr;
+        Rsh  = RshRef * (Gref/Geff) * NsMod/NpStr;
+        Rs   = RsRef * NsMod/NpStr;
+        vd   = v + i*Rs;
+    in
+        v == p.v - n.v;
+        i == Iph - I0*(exp(vd/aa) - 1) - vd/Rsh;
+    end
+end
+
+end
