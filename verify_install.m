@@ -96,7 +96,7 @@ function ok = verify_install()
         fprintf("  Everything works. Next steps:\n");
         fprintf("    run_all                 the whole pipeline, about 11 min\n");
         fprintf("    runtests('matlab/tests') the 27 unit tests\n");
-        fprintf("    setup_workspace(\"step\")  open the Simulink model ready to run\n");
+        fprintf('    setup_workspace(''step'')  open the Simulink model ready to run\n');
     else
         fprintf("  Some checks failed. See the messages above.\n");
     end
