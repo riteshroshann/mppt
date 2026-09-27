@@ -58,7 +58,7 @@ function plot_last_run()
         Title = "Inductor current with 20 kHz ripple");
 
     ax4 = nexttile(tl); hold(ax4, "on");
-    yyaxisDisabled = true; %#ok<NASGU>
+    yyaxisDisabled = true;
     plot(ax4, t, Gi, Color = s.Reference, LineWidth = 1.4);
     mpptlab.util.finish(ax4, XLabel = "time (s)", YLabel = "irradiance (W/m^2)", ...
         Title = "Applied irradiance profile");

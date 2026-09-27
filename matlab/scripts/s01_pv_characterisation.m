@@ -85,7 +85,7 @@ rows = [];
 for k = 1:numel(Glist)
     pv.G = Glist(k);
     q = pv.operatingSummary();
-    rows = [rows; q.G, q.Vmp, q.Imp, q.Pmp, q.Voc, q.Isc, q.FF, q.rdMpp]; %#ok<AGROW>
+    rows = [rows; q.G, q.Vmp, q.Imp, q.Pmp, q.Voc, q.Isc, q.FF, q.rdMpp];
 end
 T = array2table(rows, VariableNames = ["G" "Vmp" "Imp" "Pmp" "Voc" "Isc" "FF" "rd_mpp"]);
 fprintf("\nArray operating points at 25 degC\n");

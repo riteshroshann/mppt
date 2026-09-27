@@ -25,6 +25,6 @@ function file = savefig(fig, name, opts)
     for f = opts.Formats
         target = fullfile(dest, name + "." + f);
         exportgraphics(fig, target, Resolution = 200);
-        file(end+1) = target; %#ok<AGROW>
+        file(end+1) = target;
     end
 end

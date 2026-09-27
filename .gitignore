@@ -1,4 +1,3 @@
-# MATLAB
 *.asv
 *.autosave
 *.mex*
@@ -10,28 +9,23 @@ codegen/
 *.slx.r*
 octave-workspace
 
-# Simulink cache / build
 *.mexw64
 *.mexa64
 *.mexmaci64
 **/slprj/**
 
-# Generated results (keep the folders, drop bulky artifacts)
 results/data/*.mat
 results/figures/*.png
 results/figures/*.pdf
 !results/**/.gitkeep
 
-# OS
 Thumbs.db
 .DS_Store
 
-# Simscape generated library and build artifacts
 simulink/pvsrc_lib.slx
 simulink/+pvsrc/.subsystem_cache/
 simulink/*.slxc
 
-# LaTeX build artifacts
 docs/*.aux
 docs/*.log
 docs/*.out

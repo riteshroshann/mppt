@@ -185,7 +185,7 @@ function bad = softSet(blk, pairs)
         try
             set_param(blk, pairs{k}, pairs{k+1});
         catch
-            bad(end+1) = string(blk) + " : " + string(pairs{k}); %#ok<AGROW>
+            bad(end+1) = string(blk) + " : " + string(pairs{k});
         end
     end
 end
@@ -210,7 +210,6 @@ end
 function c = controllerCode()
     c = [ ...
 "function [duty, vref, iref] = controller(vpv, ipv, iL, k, mode, dFixed)"
-"%#codegen"
 "persistent xi xv Vref cnt Pprev dirn ready"
 "KpI = k(1); KiI = k(2); KpV = k(3); KiV = k(4); Ts = k(5);"
 "dMin = k(6); dMax = k(7); ILmax = k(8); nM = k(9); step = k(10);"

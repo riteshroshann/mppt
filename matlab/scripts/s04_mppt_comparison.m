@@ -21,7 +21,7 @@ for k = 1:numel(names)
     tail = o.vpv(o.t > 2.2);
     m = o.metrics;
     rows = [rows; 100*m.etaMppt, m.rmsTrackErrorV, max(tail)-min(tail), ...
-            m.maxPowerDeficit, o.WallTime]; %#ok<AGROW>
+            m.maxPowerDeficit, o.WallTime];
     fprintf("%-14s eta = %7.4f %%   rms err = %6.2f V   ripple = %5.2f V   worst deficit = %7.1f W\n", ...
         names(k), 100*m.etaMppt, m.rmsTrackErrorV, max(tail)-min(tail), m.maxPowerDeficit);
 end

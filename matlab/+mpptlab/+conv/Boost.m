@@ -157,13 +157,13 @@ classdef Boost < handle
                         if isempty(sysArr)
                             sysArr = s;
                         else
-                            sysArr(:, :, n) = s; %#ok<AGROW>
+                            sysArr(:, :, n) = s;
                         end
                         o.modal = obj.modalProperties(o);
                         if isempty(ops)
                             ops = o;
                         else
-                            ops(n) = o; %#ok<AGROW>
+                            ops(n) = o;
                         end
                     end
                 end

@@ -76,7 +76,7 @@ function R = loopAnalysis(bc, pv, K, opts)
                 if isempty(rows)
                     rows = r;
                 else
-                    rows(n) = r; %#ok<AGROW>
+                    rows(n) = r;
                 end
             end
         end

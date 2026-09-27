@@ -28,7 +28,7 @@ function files = export_model_diagram(opts)
     for ext = ["png" "pdf"]
         target = fullfile(dest, "s07_simulink_model." + ext);
         print(['-s' mdl], "-d" + ext, "-r200", target);
-        files(end+1) = target; %#ok<AGROW>
+        files(end+1) = target;
     end
 
     fprintf("Exported block diagram of %s to:\n", mdl);

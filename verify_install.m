@@ -73,7 +73,7 @@ function ok = verify_install()
 
     try
         setup_workspace("fixedduty", Open = false, Duration = 0.02);
-        out = sim("mppt_boost_switched"); %#ok<NASGU>
+        out = sim("mppt_boost_switched");
         checks = add(checks, "switched Simulink model", true, "simulated 0.02 s");
     catch e
         checks = add(checks, "switched Simulink model", false, e.message);

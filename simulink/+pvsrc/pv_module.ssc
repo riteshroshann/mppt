@@ -1,13 +1,18 @@
 component pv_module
 
 nodes
-    p = foundation.electrical.electrical; % +:left
-    n = foundation.electrical.electrical; % -:right
+    p = foundation.electrical.electrical;
+    n = foundation.electrical.electrical;
+end
+
+annotations
+    [p, G, Tc] : Side = left;
+    n          : Side = right;
 end
 
 inputs
-    G  = { 1000,   'W/m^2' }; % G:left
-    Tc = { 298.15, 'K'     }; % T:left
+    G  = { 1000,   'W/m^2' };
+    Tc = { 298.15, 'K'     };
 end
 
 parameters
