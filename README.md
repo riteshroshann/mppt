@@ -53,3 +53,10 @@ Three-layer control hierarchy: inner current loop at 2 kHz, PV voltage loop at
 - Switched circuit agrees with the averaged model to 0.23 % in voltage.
 
 Full detail in `docs/report/Solar_MPPT_Control_Report.pdf` (93 pages).
+
+## Helios
+
+The digital twin built on this work, a 615 kW farm of 256 arrays with live trackers, residual fault detection,
+an MCP server and an NVIDIA Omniverse connector, is in a separate private repository,
+[riteshroshann/helios](https://github.com/riteshroshann/helios), which holds all of its proprietary code.
+The live twin is at [riteshroshann.github.io/helios](https://riteshroshann.github.io/helios/).
